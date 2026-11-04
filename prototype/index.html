@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apocalypse 101 — Prototype</title>
+<link rel="stylesheet" href="styles.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
+</script>
+</head>
+<body>
+<div id="game"></div>
+
+<div id="hud">
+  <div id="party"></div>
+  <div id="side">
+    <div id="inv"></div>
+    <div id="objective"></div>
+  </div>
+  <div id="prompt"></div>
+  <div id="toast"></div>
+  <div id="help">
+    <b>WASD / Arrows / Left stick</b> move · <b>E / Space / A</b> interact · <b>H / X</b> heal · <b>C / Y</b> craft anywhere · <b>J</b> journal
+  </div>
+</div>
+
+<div id="combat" hidden>
+  <div id="cEnemies"></div>
+  <div id="cLog"></div>
+  <div id="cMini" hidden></div>
+  <div id="cParty"></div>
+  <div id="cMenu"></div>
+  <div id="cFlash"></div>
+</div>
+
+<div id="overlay" hidden><div id="panel"></div></div>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
