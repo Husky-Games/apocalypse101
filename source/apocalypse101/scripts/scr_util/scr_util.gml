@@ -2,7 +2,8 @@
 // World logic runs in "units" (same coordinates as the browser prototype: x across, z down).
 // wx()/wy() convert units to room pixels for drawing.
 
-#macro U 40                    // pixels per world unit
+#macro U 48                    // room pixels per world unit (one 16 px tile at 3x)
+#macro AS 3                    // art scale: LimeZu 16x16 pixels drawn at 3x
 #macro GUI_W 1280
 #macro GUI_H 720
 #macro MAX_PARTY 3
@@ -147,6 +148,11 @@ function display_update() {
     surface_resize(application_surface, _sw, _sh);
     view_wport[0] = _sw;
     view_hport[0] = _sh;
+    // Zoom the world camera so each art pixel covers a whole number of screen pixels
+    // (crisp pixel art), keeping roughly 28 tiles across.
+    var _n = max(1, round(AS * _sw / 1350));
+    var _vw = AS * _sw / _n;
+    camera_set_view_size(view_camera[0], _vw, _vw * GUI_H / GUI_W);
     display_set_gui_maximize(_s, _s, global.disp_x, global.disp_y);
 }
 

@@ -255,8 +255,9 @@ function draw_roster() {
         if (_f && _sel) { draw_roundrect_ext(_cx + 1, _cy + 1, _cx + _cw - 1, _cy + _ch - 1, 12, 12, true); }
         if (!_can) { draw_set_alpha(0.35); draw_set_colour(c_black); draw_roundrect_ext(_cx, _cy, _cx + _cw, _cy + _ch, 12, 12, false); draw_set_alpha(1); }
 
-        draw_set_colour(_m.colour); draw_circle(_cx + 22, _cy + 22, 9, false);
-        draw_txt(_cx + 40, _cy + 10, $"{_i + 1}. {_m.name}", COL_TEXT, fnt_ui);
+        draw_portrait(_m, _cx + _cw - 62, _cy + _ch - 104, 3);
+        draw_set_colour(_m.colour); draw_circle(_cx + 22, _cy + 22, 7, false);
+        draw_txt(_cx + 38, _cy + 10, $"{_i + 1}. {_m.name}", COL_TEXT, fnt_ui);
         if (_sel) draw_txt(_cx + _cw - 14, _cy + 12, "IN PARTY", COL_ACCENT, fnt_small, fa_right);
         draw_txt(_cx + 14, _cy + 40, $"{_m.major} · {_m.clique} · Lv{_m.level}", COL_MUTED, fnt_small);
         draw_txt(_cx + 14, _cy + 62, $"ATK {_m.atk}    HP {_m.maxHp}    DEF {_m.def}    INT {_m.int}", COL_TEXT, fnt_small);
@@ -268,7 +269,7 @@ function draw_roster() {
         if (!_m.canJump) { draw_txt(_cx + 14, _ty, "! Cannot jump obstacles", COL_WARN, fnt_small); _ty += 20; }
         if (_m.trait == "craftAnywhere") draw_txt(_cx + 14, _ty, "* Group can craft anywhere", COL_ACCENT, fnt_small);
         // HP if hurt
-        if (_m.hp < _m.maxHp) draw_txt(_cx + _cw - 14, _cy + 40, $"HP {_m.hp}/{_m.maxHp}", COL_WARN, fnt_small, fa_right);
+        if (_m.hp < _m.maxHp) draw_txt(_cx + _cw - 80, _cy + 40, $"HP {_m.hp}/{_m.maxHp}", COL_WARN, fnt_small, fa_right);
     }
 
     var _by = _y2 - 62;

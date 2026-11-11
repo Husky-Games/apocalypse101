@@ -2,6 +2,7 @@
 
 function game_init() {
     data_init();
+    atlas_init();
     global.G = {
         mode: "ui",            // ui | explore | combat
         overlay: "",           // roster | craft | journal | finish
@@ -28,6 +29,7 @@ function game_init() {
         colliders: [],
         boxes: [],
         trees: [],
+        decor: [],
         tables: [],
         items: [],
         enemies: [],
@@ -63,13 +65,18 @@ function add_box(_x, _z, _w, _d, _h, _col, _collide = true, _y = 0, _kind = "box
     return { box: _b, col: _c };
 }
 
-function add_tree(_x, _z) {
-    array_push(global.G.trees, { x: _x, z: _z });
+function add_tree(_x, _z, _art) {
+    array_push(global.G.trees, { x: _x, z: _z, art: _art });
     array_push(global.G.colliders, { minX: _x - 0.4, maxX: _x + 0.4, minZ: _z - 0.4, maxZ: _z + 0.4 });
 }
 
+/// Non-colliding scenery sprite (atlas name), anchored bottom-centre at (x, z).
+function add_decor(_art, _x, _z) {
+    array_push(global.G.decor, { art: _art, x: _x, z: _z });
+}
+
 function add_table(_x, _z) {
-    add_box(_x, _z, 2.4, 1.2, 1, rgb(0x8a5a2a), true, 0, "table");
+    add_box(_x, _z, 3.6, 1, 1, rgb(0x8a5a2a), true, 0, "table");
     array_push(global.G.tables, { x: _x, z: _z });
 }
 
@@ -87,29 +94,36 @@ function add_explore_enemy(_type, _count, _x, _z) {
 function world_build() {
     var _wall = rgb(0xc9c2b0);
     // Classroom (home base)
-    add_box(-22, -8, 12.6, 0.6, 3, _wall);
-    add_box(-22, 8, 12.6, 0.6, 3, _wall);
-    add_box(-28, 0, 0.6, 16.6, 3, _wall);
-    add_box(-16, -5, 0.6, 6, 3, _wall);
-    add_box(-16, 5, 0.6, 6, 3, _wall);
+    add_box(-22, -8, 12.6, 0.6, 3, _wall, true, 0, "wall_n"); // north wall shows its face
+    add_box(-22, 8, 12.6, 0.6, 3, _wall, true, 0, "wall");
+    add_box(-28, 0, 0.6, 16.6, 3, _wall, true, 0, "wall");
+    add_box(-16, -5, 0.6, 6, 3, _wall, true, 0, "wall");
+    add_box(-16, 5, 0.6, 6, 3, _wall, true, 0, "wall");
     var _desks = [[-26, 3.5], [-23, 3.5], [-20, 3.5], [-26, 6], [-23, 6], [-20, 6]];
     for (var _i = 0; _i < array_length(_desks); _i++) add_box(_desks[_i][0], _desks[_i][1], 2, 1, 0.8, rgb(0x7a5a3a), true, 0, "desk");
     add_box(-20, -7.5, 4, 0.3, 2, rgb(0xf4f4f4), false, 0.6, "board"); // roster whiteboard
     add_table(-26, -5.5);
 
     // Campus
-    add_box(-4, -12, 10, 6, 4, rgb(0x6d6a78), true, 0, "building"); // lecture hall
-    add_box(6, 10, 9, 7, 4, rgb(0x7a6a5a), true, 0, "building");    // library
-    add_box(-9, 12, 3, 2, 1.2, rgb(0x555b66), true, 0, "car");      // wrecked cars
-    add_box(10, -4, 2, 2, 1.2, rgb(0x555b66), true, 0, "car");
-    var _trees = [[-12, 8], [-10, -4], [3, 4], [12, 5], [13, -14], [-2, 17], [8, -9], [22, 15], [27, -6], [19, -15]];
-    for (var _i = 0; _i < array_length(_trees); _i++) add_tree(_trees[_i][0], _trees[_i][1]);
+    // Collider = building footprint; the sprite (atlas name = kind) is drawn bottom-centred on it.
+    add_box(-4, -15, 24, 10, 4, rgb(0x6d6a78), true, 0, "school");   // main school building (lecture hall)
+    add_box(6, 14, 7, 3.5, 4, rgb(0x7a6a5a), true, 0, "tower");      // clock tower (library)
+    add_box(-9, 12, 4, 2, 1.2, rgb(0x555b66), true, 0, "car1");      // wrecked cars
+    add_box(10, -4, 4, 2, 1.2, rgb(0x555b66), true, 0, "car2");
+    var _trees = [[-12, 8, "tree_dead1"], [-10, -4, "tree_big"], [3, 4, "tree_dead2"], [12, 5, "tree_leaf1"], [13, -14, "tree_dead1"],
+                  [-2, 17, "tree_leaf2"], [10, -8, "tree_dead2"], [22, 15, "tree_big"], [27, -6, "tree_leaf1"], [19, -15, "tree_dead1"]];
+    for (var _i = 0; _i < array_length(_trees); _i++) add_tree(_trees[_i][0], _trees[_i][1], _trees[_i][2]);
 
     // The fence (needs the whole party to clear it)
     global.G.fence = add_box(FENCE_X, 0, 0.7, 40, 2.4, rgb(0xa85a2a), true, 0, "fence");
     // East quad
     add_table(24, -10);
-    add_box(22, 10, 4, 3, 2.4, rgb(0x4a3d5a), true, 0, "shed");
+    add_box(22, 10, 4, 2, 2.4, rgb(0x4a3d5a), true, 0, "container");
+
+    // Scenery
+    add_decor("sign", 15.1, -2.9); add_decor("sign", 15.1, 3.3);
+    add_decor("junk", -6.5, 12.6); add_decor("junk", 12.3, -3.2); add_decor("junk", 20, 11.6);
+    add_decor("bench", -12.5, -2.8); add_decor("bench", 4, -2.8);
 
     // Items
     var _spots = [
@@ -150,6 +164,8 @@ function party_place() {
         if (_k >= 0) { _m.px = _t.px - 1 - _k * 0.2; _m.pz = _t.pz + 0.8 + _k * 0.8; }
         else { _m.px = _idle[_i][0]; _m.pz = _idle[_i][1]; }
         _m.py = 0;
+        _m.moving = false;
+        _m.face = 270;
     }
 }
 
@@ -287,7 +303,8 @@ function explore_update(_dt) {
         _t.px = _p[0]; _t.pz = _p[1];
         _t.face = point_direction(0, 0, _ix, _iz);
     }
-    _t.py = _moving ? abs(sin(_G.time * 11)) * 0.08 : 0;
+    _t.moving = _moving;
+    _t.py = 0;
 
     // Followers trail the leader; the party moves as one.
     for (var _i = 0; _i < array_length(_G.party); _i++) {
@@ -302,7 +319,8 @@ function explore_update(_dt) {
             _m.face = point_direction(0, 0, _dx, _dz);
             _active = true;
         }
-        _m.py = _active ? abs(sin(_G.time * 11)) * 0.08 : 0;
+        _m.moving = _active;
+        _m.py = 0;
     }
 
     // Hop over the lowered fence
@@ -350,8 +368,9 @@ function explore_update(_dt) {
 function camera_update(_dt) {
     var _G = global.G;
     var _t = _G.teacher;
-    var _tx = clamp(wx(_t.px) - GUI_W / 2, 0, room_width - GUI_W);
-    var _ty = clamp(wy(_t.pz + 1) - GUI_H / 2, 0, room_height - GUI_H);
+    var _vw = camera_get_view_width(view_camera[0]), _vh = camera_get_view_height(view_camera[0]);
+    var _tx = clamp(wx(_t.px) - _vw / 2, 0, room_width - _vw);
+    var _ty = clamp(wy(_t.pz + 1) - _vh / 2, 0, room_height - _vh);
     var _k = 1 - power(0.001, _dt);
     _G.cam_x = lerp(_G.cam_x, _tx, _k);
     _G.cam_y = lerp(_G.cam_y, _ty, _k);

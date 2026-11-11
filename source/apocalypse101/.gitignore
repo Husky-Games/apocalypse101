@@ -63,3 +63,6 @@ Build
 # gms-mcp local state (keep the runtime pin)
 .gms_mcp/*
 !.gms_mcp/runtime.json
+
+# Intermediate art built from the LimeZu packs (see content/downloaded)
+_art/

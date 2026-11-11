@@ -1,43 +1,70 @@
-// Rendering. Exploration is top-down with faux height (Undertale / Dragon Quest style);
-// combat is a drawn first-person school hallway. No sprite assets: everything is primitives.
+// Rendering. Exploration is top-down using the LimeZu Modern Exteriors / Interiors art
+// (16 px tiles drawn at 3x, see scr_atlas); combat is a drawn first-person school hallway.
 
-#macro HS 14   // pixels per unit of height (faux 3D lift)
+#macro HS 14   // pixels per unit of height (hop / lift offsets)
+
+/* ================================================================ atlas */
+
+/// Draw atlas region `_name` with its top-left at (x, y).
+function atl_draw(_name, _x, _y, _xs = AS, _ys = AS, _col = c_white, _a = 1) {
+    var _r = global.ATLAS[$ _name];
+    draw_sprite_part_ext(spr_atlas, 0, _r[0], _r[1], _r[2], _r[3], _x, _y, _xs, _ys, _col, _a);
+}
+
+/// Draw atlas region anchored at its bottom-centre.
+function atl_draw_bc(_name, _x, _y, _col = c_white, _a = 1) {
+    var _r = global.ATLAS[$ _name];
+    draw_sprite_part_ext(spr_atlas, 0, _r[0], _r[1], _r[2], _r[3], round(_x - _r[2] * AS / 2), round(_y - _r[3] * AS), AS, AS, _col, _a);
+}
+
+/// Draw one 16x16 cell of a (possibly larger, repeating) tile pattern at grid cell (ix, iz).
+function atl_tile(_name, _ix, _iz) {
+    var _r = global.ATLAS[$ _name];
+    var _cx = (_ix mod (_r[2] div 16)) * 16, _cz = (_iz mod (_r[3] div 16)) * 16;
+    draw_sprite_part_ext(spr_atlas, 0, _r[0] + _cx, _r[1] + _cz, 16, 16, _ix * U, _iz * U, AS, AS, c_white, 1);
+}
+
+/// Which ground tile sits at grid cell (ix, iz).
+function ground_at(_ix, _iz) {
+    var _x = _ix - 30 + 0.5, _z = _iz - 20 + 0.5;
+    if (_x > -28 && _x < -16 && _z > -8 && _z < 8) return "floor";
+    if (_x > 16.5) return "pave";
+    if (_x > -22 && _x < 18 && abs(_z) < 2.5) return "asphalt";
+    return ((_ix * 7 + _iz * 13) mod 9 == 0) ? "grass2" : "grass";
+}
 
 /* ================================================================ world */
 
 function draw_world() {
     var _G = global.G;
     if (_G.mode == "combat") return;
+    gpu_set_tex_filter(false);
 
-    // Ground
-    draw_set_colour(rgb(0x2b3a2e));
-    draw_rectangle(0, 0, room_width, room_height, false);
-    // Grass tufts (deterministic)
-    random_set_seed(7);
-    draw_set_colour(rgb(0x24322a));
-    repeat (500) { var _gx = irandom(room_width), _gy = irandom(room_height); draw_rectangle(_gx, _gy, _gx + 3, _gy + 1, false); }
-    randomize();
+    // Ground: only the tiles inside the camera view
+    var _cam = view_camera[0];
+    var _cx = camera_get_view_x(_cam), _cy = camera_get_view_y(_cam);
+    var _ix0 = max(0, floor(_cx / U)), _iz0 = max(0, floor(_cy / U));
+    var _ix1 = min(room_width div U - 1, ceil((_cx + camera_get_view_width(_cam)) / U));
+    var _iz1 = min(room_height div U - 1, ceil((_cy + camera_get_view_height(_cam)) / U));
+    for (var _iz = _iz0; _iz <= _iz1; _iz++)
+        for (var _ix = _ix0; _ix <= _ix1; _ix++) atl_tile(ground_at(_ix, _iz), _ix, _iz);
 
-    // Path
-    draw_set_colour(rgb(0x4a4a50));
-    draw_rectangle(wx(-22), wy(-2.5), wx(18), wy(2.5), false);
-    draw_set_colour(rgb(0x5a5a60));
-    for (var _x = -21; _x < 18; _x += 2) draw_rectangle(wx(_x), wy(-0.06), wx(_x + 1), wy(0.06), false);
-
-    // Classroom floor (planks)
-    draw_set_colour(rgb(0x8a7a5a));
-    draw_rectangle(wx(-28), wy(-8), wx(-16), wy(8), false);
-    draw_set_colour(rgb(0x7c6d50));
-    for (var _z = -8; _z < 8; _z += 0.8) draw_line(wx(-28), wy(_z), wx(-16), wy(_z));
-
-    // East quad
-    draw_set_colour(rgb(0x33403a));
-    draw_rectangle(wx(16.5), wy(-20), wx(29.5), wy(20), false);
-
-    // Depth-sorted scene
+    // Depth-sorted scene (by the front edge of each thing)
     var _list = [];
-    for (var _i = 0; _i < array_length(_G.boxes); _i++) array_push(_list, { k: _G.boxes[_i].z2, t: 0, r: _G.boxes[_i] });
+    for (var _i = 0; _i < array_length(_G.boxes); _i++) {
+        var _b = _G.boxes[_i];
+        if (_b.kind == "fence") {
+            // one entry per post so characters sort correctly against it
+            for (var _z = -20 + 28 / 16; _z <= 20.01; _z += 28 / 16) {
+                if (_G.fence_cleared && abs(_z - 0.3) < 2.4) continue; // the gap the party vaulted
+                array_push(_list, { k: _z, t: 5, r: _z });
+            }
+            continue;
+        }
+        array_push(_list, { k: _b.z2, t: 0, r: _b });
+    }
     for (var _i = 0; _i < array_length(_G.trees); _i++) array_push(_list, { k: _G.trees[_i].z + 0.4, t: 1, r: _G.trees[_i] });
+    for (var _i = 0; _i < array_length(_G.decor); _i++) array_push(_list, { k: _G.decor[_i].z, t: 6, r: _G.decor[_i] });
     for (var _i = 0; _i < array_length(_G.items); _i++) array_push(_list, { k: _G.items[_i].z, t: 2, r: _G.items[_i] });
     for (var _i = 0; _i < array_length(_G.enemies); _i++) array_push(_list, { k: _G.enemies[_i].z, t: 3, r: _G.enemies[_i] });
     array_push(_list, { k: _G.teacher.pz, t: 4, r: _G.teacher });
@@ -48,15 +75,29 @@ function draw_world() {
         var _e = _list[_i];
         switch (_e.t) {
             case 0: draw_box(_e.r); break;
-            case 1: draw_tree(_e.r); break;
+            case 1: atl_draw_bc(_e.r.art, wx(_e.r.x), wy(_e.r.z) + 0.45 * U); break;
             case 2: draw_item(_e.r); break;
             case 3: draw_explore_enemy(_e.r); break;
             case 4: draw_char(_e.r); break;
+            case 5: atl_draw_bc("fence", wx(FENCE_X), wy(_e.r)); break;
+            case 6: atl_draw_bc(_e.r.art, wx(_e.r.x), wy(_e.r.z)); break;
         }
     }
 
-    // Light glows (additive)
+    // Night: multiply everything by a cool dark tint...
+    var _vw = camera_get_view_width(_cam), _vh = camera_get_view_height(_cam);
+    gpu_set_blendmode_ext(bm_dest_colour, bm_zero);
+    draw_set_colour(rgb(0x7480a8));
+    draw_rectangle(_cx - 2, _cy - 2, _cx + _vw + 2, _cy + _vh + 2, false);
+    gpu_set_blendmode(bm_normal);
+
+    // ...then add the lights back
     gpu_set_blendmode(bm_add);
+    draw_set_alpha(0.16); draw_set_colour(rgb(0xffd9a0));          // classroom lights are still on
+    draw_rectangle(wx(-28), wy(-8), wx(-16), wy(8), false);
+    draw_set_alpha(1);
+    var _t = _G.teacher;
+    draw_circle_colour(wx(_t.px), wy(_t.pz) - U * 0.6, 3.2 * U, rgb(0x2a2a22), c_black, false); // the teacher's torch
     var _pulse = 0.6 + sin(_G.time * 3) * 0.25;
     for (var _i = 0; _i < array_length(_G.tables); _i++) {
         var _tb = _G.tables[_i];
@@ -65,89 +106,50 @@ function draw_world() {
     for (var _i = 0; _i < array_length(_G.items); _i++) {
         var _n = _G.items[_i];
         var _c = _n.type == "clue" ? rgb(0xfff27a) : global.ITEMS[$ _n.type].colour;
-        draw_circle_colour(wx(_n.x), wy(_n.z) - 14, 0.9 * U, merge_colour(c_black, _c, 0.28), c_black, false);
+        draw_circle_colour(wx(_n.x), wy(_n.z) - 14, 0.9 * U, merge_colour(c_black, _c, 0.35), c_black, false);
+    }
+    for (var _i = 0; _i < array_length(_G.enemies); _i++) {
+        var _en = _G.enemies[_i];
+        var _def = global.ENEMY_TYPES[$ _en.type];
+        draw_circle_colour(wx(_en.x), wy(_en.z) - 1.2 * U * _en.scale, 1.3 * U * _en.scale, merge_colour(c_black, _def.eye, 0.22), c_black, false);
     }
     gpu_set_blendmode(bm_normal);
-}
-
-function box_rect(_b) {
-    var _lift = _b.h * _b.squash * HS, _base = _b.y * HS;
-    return { x1: wx(_b.x1), x2: wx(_b.x2), y1: wy(_b.z1), y2: wy(_b.z2), lift: _lift, base: _base };
+    gpu_set_tex_filter(true);
 }
 
 function draw_box(_b) {
-    var _r = box_rect(_b);
-    var _top = _r.y1 - _r.lift - _r.base, _bot = _r.y2 - _r.lift - _r.base;
-    var _front = merge_colour(_b.colour, c_black, 0.38);
-
-    if (_b.kind != "board") {
-        draw_set_alpha(0.28); draw_set_colour(c_black);
-        draw_rectangle(_r.x1 + 4, _r.y1 + 4, _r.x2 + 4 + _r.lift * 0.4, _r.y2 + 6, false);
-        draw_set_alpha(1);
-    }
-    // front face
-    draw_set_colour(_front);
-    draw_rectangle(_r.x1, _bot, _r.x2, _r.y2 - _r.base, false);
-
+    var _x1 = wx(_b.x1), _x2 = wx(_b.x2), _y1 = wy(_b.z1), _y2 = wy(_b.z2);
+    var _mx = (_x1 + _x2) / 2;
     switch (_b.kind) {
-        case "fence":
-            for (var _y = _top; _y < _bot; _y += 24) {
-                draw_set_colour(((_y - _top) div 24) mod 2 ? rgb(0x2a2018) : _b.colour);
-                draw_rectangle(_r.x1, _y, _r.x2, min(_bot, _y + 24), false);
+        case "wall_n": case "wall":
+            // LimeZu-style wall: white "ceiling" top with dark outline, wood panelling below.
+            // Only the north wall shows its full face; the others show a thin edge.
+            var _face = _b.kind == "wall_n" ? 2 * U : 0.35 * U;
+            var _top = _y1 - _face, _bot = _y2 - _face;
+            if (_b.kind == "wall_n") {
+                var _r = global.ATLAS.wall;
+                for (var _x = _x1; _x < _x2; _x += 16 * AS) {
+                    var _w = min(16, (_x2 - _x) / AS);
+                    draw_sprite_part_ext(spr_atlas, 0, _r[0], _r[1], _w, 32, _x, _bot, AS, AS, c_white, 1);
+                }
+            } else {
+                draw_set_colour(rgb(0x8a6a48));
+                draw_rectangle(_x1, _bot, _x2, _y2, false);
             }
+            draw_set_colour(rgb(0xf4f2ee));
+            draw_rectangle(_x1, _top, _x2, _bot, false);
+            draw_set_colour(rgb(0x3a3d4a));
+            draw_rectangle(_x1, _top, _x2, _bot, true);
+            draw_rectangle(_x1 + 1, _top + 1, _x2 - 1, _bot - 1, true);
             break;
-        case "board":
-            draw_set_colour(rgb(0xf4f4f4));
-            draw_rectangle(_r.x1, _top, _r.x2, _bot + 10, false);
-            draw_set_colour(rgb(0x3a4a6a));
-            draw_rectangle(_r.x1, _top, _r.x2, _bot + 10, true);
-            draw_set_font(fnt_small); draw_set_colour(rgb(0x2a3a8a)); draw_set_halign(fa_center);
-            tdraw((_r.x1 + _r.x2) / 2, _top - 2, "PARTY ROSTER");
-            draw_set_halign(fa_left);
-            break;
-        case "table":
-            draw_set_colour(_b.colour);
-            draw_rectangle(_r.x1, _top, _r.x2, _bot, false);
-            var _p = 0.6 + sin(global.G.time * 3) * 0.25;
-            draw_set_colour(merge_colour(rgb(0xffb347), rgb(0xff8a1a), 1 - _p));
-            draw_rectangle(_r.x1 + 4, _top + 4, _r.x2 - 4, _bot - 4, false);
-            break;
-        case "building":
-            draw_set_colour(_b.colour);
-            draw_rectangle(_r.x1, _top, _r.x2, _bot, false);
-            draw_set_colour(merge_colour(_b.colour, c_white, 0.12));
-            draw_rectangle(_r.x1 + 6, _top + 6, _r.x2 - 6, _bot - 6, true);
-            // dark windows on the front face
-            draw_set_colour(rgb(0x1a1d26));
-            for (var _wx = _r.x1 + 14; _wx < _r.x2 - 20; _wx += 34) draw_rectangle(_wx, _bot + 12, _wx + 18, _r.y2 - _r.base - 14, false);
-            break;
-        case "car":
-            draw_set_colour(_b.colour);
-            draw_rectangle(_r.x1, _top, _r.x2, _bot, false);
-            draw_set_colour(rgb(0x22262e));
-            draw_rectangle(_r.x1 + 10, _top + 8, _r.x2 - 10, _bot - 8, false);
-            break;
-        default:
-            draw_set_colour(_b.colour);
-            draw_rectangle(_r.x1, _top, _r.x2, _bot, false);
-            break;
+        case "board":   atl_draw_bc("board", _mx, _y2 - 0.9 * U); break;
+        case "desk":    atl_draw_bc("desk", _mx, _y2 + 0.2 * U); break;
+        case "table":   atl_draw_bc("workbench", _mx, _y2 + 0.3 * U); break;
+        case "school":  atl_draw_bc("school", _mx, _y2 + 2 * U); break;
+        case "tower":   atl_draw_bc("tower", _mx, _y2 + 0.4 * U); break;
+        case "car1": case "car2": case "container":
+            atl_draw_bc(_b.kind, _mx, _y2 + 0.5 * U); break;
     }
-    if (_b.kind != "board") {
-        draw_set_colour(merge_colour(_b.colour, c_black, 0.55));
-        draw_rectangle(_r.x1, _top, _r.x2, _r.y2 - _r.base, true);
-    }
-}
-
-function draw_tree(_t) {
-    var _x = wx(_t.x), _y = wy(_t.z);
-    draw_set_alpha(0.3); draw_set_colour(c_black);
-    draw_ellipse(_x - 30, _y - 8, _x + 42, _y + 12, false);
-    draw_set_alpha(1);
-    draw_set_colour(rgb(0x4a3524));
-    draw_rectangle(_x - 6, _y - 22, _x + 6, _y + 2, false);
-    draw_set_colour(rgb(0x173a29)); draw_circle(_x, _y - 46, 1.4 * U, false);
-    draw_set_colour(rgb(0x1f4a34)); draw_circle(_x - 6, _y - 52, 1.1 * U, false);
-    draw_set_colour(rgb(0x2a5c42)); draw_circle(_x - 14, _y - 60, 0.55 * U, false);
 }
 
 function draw_item(_n) {
@@ -177,57 +179,53 @@ function draw_item(_n) {
     }
 }
 
+/// Character sprite frame: strips are 24 frames of 16x32 (right, up, left, down x6);
+/// row 0 = idle animation, row 1 = walk.
+function char_frame(_spr, _face, _moving, _x, _y, _scale = AS, _col = c_white, _a = 1, _phase = 0) {
+    var _dir = ((round(_face / 90) mod 4) + 4) mod 4;
+    var _f = floor(global.G.time * (_moving ? 10 : 6) + _phase) mod 6;
+    draw_sprite_part_ext(_spr, 0, (_dir * 6 + _f) * 16, _moving ? 32 : 0, 16, 32,
+        round(_x - 8 * _scale), round(_y - 31 * _scale), _scale, _scale, _col, _a);
+}
+
 function draw_char(_m) {
-    var _s = _m.scale;
     var _x = wx(_m.px), _y = wy(_m.pz), _lift = _m.py * HS * 1.4;
     draw_set_alpha(0.35); draw_set_colour(c_black);
-    draw_ellipse(_x - 15 * _s, _y - 5 * _s, _x + 15 * _s, _y + 5 * _s, false);
+    draw_ellipse(_x - 16, _y - 6, _x + 16, _y + 6, false);
     draw_set_alpha(1);
-    var _bw = 13 * _s, _bh = 26 * _s;
-    var _by2 = _y - _lift, _by1 = _by2 - _bh;
-    draw_set_colour(merge_colour(_m.colour, c_black, 0.25));
-    draw_roundrect_ext(_x - _bw, _by1, _x + _bw, _by2, 10 * _s, 10 * _s, false);
-    draw_set_colour(_m.colour);
-    draw_roundrect_ext(_x - _bw + 2, _by1, _x + _bw - 2, _by2 - 4 * _s, 10 * _s, 10 * _s, false);
-    var _hy = _by1 - 7 * _s, _hr = 11 * _s;
-    draw_set_colour(rgb(0xf0d2b0));
-    draw_circle(_x, _hy, _hr, false);
-    // face direction: eyes slide toward the facing side; hidden when facing away (up)
-    var _fx = lengthdir_x(5 * _s, _m.face), _fy = lengthdir_y(3 * _s, _m.face);
-    if (_fy > -2 * _s) {
-        draw_set_colour(rgb(0x2a2a30));
-        draw_circle(_x + _fx - 4 * _s, _hy + _fy, 1.6 * _s, false);
-        draw_circle(_x + _fx + 4 * _s, _hy + _fy, 1.6 * _s, false);
-    }
-    draw_set_colour(merge_colour(_m.colour, c_black, 0.5));
-    draw_circle(_x, _hy, _hr, true);
+    char_frame(_m.spr, _m.face, _m.moving, _x, _y - _lift, AS, c_white, 1, _m.px);
 }
 
 function draw_explore_enemy(_e) {
-    var _G = global.G;
     var _s = _e.scale;
-    var _x = wx(_e.x), _y = wy(_e.z) - sin(_G.time * 3 + _e.hx) * 0.1 * HS * 2;
     var _def = global.ENEMY_TYPES[$ _e.type];
+    var _x = wx(_e.x), _y = wy(_e.z);
     draw_set_alpha(0.35); draw_set_colour(c_black);
-    draw_ellipse(wx(_e.x) - 18 * _s, wy(_e.z) - 6 * _s, wx(_e.x) + 18 * _s, wy(_e.z) + 6 * _s, false);
+    draw_ellipse(_x - 18 * _s, _y - 6 * _s, _x + 18 * _s, _y + 6 * _s, false);
     draw_set_alpha(1);
-    gpu_set_blendmode(bm_add);
-    draw_circle_colour(_x, _y - 30 * _s, 34 * _s, merge_colour(c_black, _def.eye, 0.18), c_black, false);
-    gpu_set_blendmode(bm_normal);
-    draw_set_colour(_def.colour);
-    draw_roundrect_ext(_x - 15 * _s, _y - 48 * _s, _x + 15 * _s, _y, 14 * _s, 14 * _s, false);
-    draw_circle(_x, _y - 52 * _s, 13 * _s, false);
-    draw_set_colour(merge_colour(_def.colour, _def.eye, 0.25));
-    draw_circle(_x, _y - 52 * _s, 13 * _s, true);
-    var _fx = lengthdir_x(3 * _s, _e.face);
-    draw_set_colour(_def.eye);
-    draw_circle(_x + _fx - 5 * _s, _y - 53 * _s, 2.4 * _s, false);
-    draw_circle(_x + _fx + 5 * _s, _y - 53 * _s, 2.4 * _s, false);
+    // Zombies from the pack, darkened into shadow silhouettes with glowing eyes
+    var _spr = _e.type == "hollow" ? spr_en_hollow : spr_en_shade;
+    var _tint = _e.type == "hollow" ? rgb(0x2a4a52) : rgb(0x4a2c58);
+    char_frame(_spr, _e.face, true, _x, _y, AS * _s, _tint, 1, _e.hx);
+    var _dir = ((round(_e.face / 90) mod 4) + 4) mod 4;
+    if (_dir != 1) { // eyes visible unless walking away
+        var _hy = _y - 20 * AS * _s, _ex = (_dir == 0 ? 2 : (_dir == 2 ? -2 : 0)) * AS * _s;
+        draw_set_colour(_def.eye);
+        if (_dir == 3) { draw_circle(_x - 2.5 * AS * _s, _hy, 0.9 * AS * _s, false); draw_circle(_x + 2.5 * AS * _s, _hy, 0.9 * AS * _s, false); }
+        else draw_circle(_x + _ex, _hy, 0.9 * AS * _s, false);
+    }
     if (_e.count > 1) {
         draw_set_font(fnt_small); draw_set_halign(fa_center); draw_set_colour(_def.eye);
-        tdraw(_x, _y - 82 * _s, $"×{_e.count}");
+        tdraw(_x, _y - 36 * AS * _s, $"×{_e.count}");
         draw_set_halign(fa_left);
     }
+}
+
+/// Small portrait (front-facing idle frame) for menus/HUD.
+function draw_portrait(_m, _x, _y, _scale) {
+    gpu_set_tex_filter(false);
+    draw_sprite_part_ext(_m.spr, 0, 18 * 16, 0, 16, 32, _x, _y, _scale, _scale, c_white, 1);
+    gpu_set_tex_filter(true);
 }
 
 /* ================================================================== GUI */
@@ -272,8 +270,10 @@ function draw_member_card(_m, _x, _y, _w, _active, _show_xp) {
     var _h = _show_xp ? 62 : 56;
     if (is_struct(_m.buff)) _h += 18;
     draw_panel(_x, _y, _x + _w, _y + _h, _active ? rgb(0x2a2414) : COL_PANEL, _active ? COL_ACCENT : COL_LINE, 0.9);
-    draw_set_colour(_m.colour); draw_circle(_x + 14, _y + 16, 5, false);
-    draw_txt(_x + 26, _y + 6, _m.name, _ko ? COL_MUTED : COL_TEXT, fnt_ui);
+    gpu_set_tex_filter(false);
+    draw_sprite_part_ext(_m.spr, 0, 18 * 16 + 1, 10, 14, 14, _x + 5, _y + 4, 1.6, 1.6, _ko ? c_gray : c_white, 1);
+    gpu_set_tex_filter(true);
+    draw_txt(_x + 30, _y + 6, _m.name, _ko ? COL_MUTED : COL_TEXT, fnt_ui);
     draw_txt(_x + _w - 10, _y + 9, $"Lv{_m.level} · " + (_ko ? "KO" : $"{_m.hp}/{_m.maxHp}"), _ko ? COL_WARN : COL_MUTED, fnt_small, fa_right);
     var _frac = _m.hp / _m.maxHp;
     draw_bar(_x + 10, _y + 34, _w - 20, 8, _frac, _frac > 0.5 ? COL_GOOD : (_frac > 0.25 ? COL_ACCENT : COL_WARN));

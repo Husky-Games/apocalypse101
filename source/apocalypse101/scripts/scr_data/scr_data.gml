@@ -70,7 +70,8 @@ function make_member(_d) {
     _m.cd = {};
     _m.buff = undefined;
     _m.defending = false;
-    _m.px = 0; _m.pz = 0; _m.py = 0; _m.face = 90;
+    _m.px = 0; _m.pz = 0; _m.py = 0; _m.face = 270; _m.moving = false;
+    _m.spr = asset_get_index("spr_ch_" + _d.key);
     _m.scale = 1;
     return _m;
 }
