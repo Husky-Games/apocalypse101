@@ -100,8 +100,12 @@ function world_build() {
     add_box(-16, -5, 0.6, 6, 3, _wall, true, 0, "wall");
     add_box(-16, 5, 0.6, 6, 3, _wall, true, 0, "wall");
     var _desks = [[-26, 3.5], [-23, 3.5], [-20, 3.5], [-26, 6], [-23, 6], [-20, 6]];
-    for (var _i = 0; _i < array_length(_desks); _i++) add_box(_desks[_i][0], _desks[_i][1], 2, 1, 0.8, rgb(0x7a5a3a), true, 0, "desk");
-    add_box(-20, -7.5, 4, 0.3, 2, rgb(0xf4f4f4), false, 0.6, "board"); // roster whiteboard
+    for (var _i = 0; _i < array_length(_desks); _i++) { var _d = add_box(_desks[_i][0], _desks[_i][1], 2, 1, 0.8, rgb(0x7a5a3a), true, 0, "desk"); _d.box.art = "desk" + string(_i + 1); }
+    var _p1 = add_box(-20, -7.5, 4, 0.3, 2, rgb(0xf4f4f4), false, 0.6, "wallart"); _p1.box.art = "board"; // roster chalkboard
+    var _p2 = add_box(-24.6, -7.6, 2, 0.2, 2, rgb(0xf4f4f4), false, 0.6, "wallart"); _p2.box.art = "map";
+    var _p3 = add_box(-17.4, -7.6, 2, 0.2, 2, rgb(0xf4f4f4), false, 0.6, "wallart"); _p3.box.art = "cork";
+    var _p4 = add_box(-18.4, -5.4, 1.8, 0.8, 1, rgb(0x2a5a4a), true, 0, "prop"); _p4.box.art = "tdesk";   // teacher's desk
+    var _p5 = add_box(-27.3, -7.25, 0.8, 0.5, 2, rgb(0x8090a0), true, 0, "prop"); _p5.box.art = "locker";
     add_table(-26, -5.5);
 
     // Campus
@@ -224,7 +228,7 @@ function heal_lowest() {
     if (array_length(_targets) == 0) { toast("Everyone is healthy."); return; }
     var _item = inv_count("bandage") > 0 ? "bandage" : (inv_count("medkit") > 0 ? "medkit" : "");
     if (_item == "") { toast("No healing items. Craft bandages from cloth."); return; }
-    array_sort(_targets, function(_a, _b) { return (_a.hp / _a.maxHp) - (_b.hp / _b.maxHp); });
+    array_sort(_targets, function(_a, _b) { return sign((_a.hp / _a.maxHp) - (_b.hp / _b.maxHp)); });
     var _t = _targets[0];
     inv_add(_item, -1);
     _t.hp = min(_t.maxHp, _t.hp + global.ITEMS[$ _item].heal);

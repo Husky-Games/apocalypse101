@@ -275,6 +275,7 @@ function draw_roster() {
     var _by = _y2 - 62;
     var _n = array_length(_G.sel);
     draw_txt(_x1 + 30, _by + 12, $"Party {_n}/{MAX_PARTY}", COL_MUTED, fnt_ui);
+    draw_txt(_x1 + 30, _by + 38, "Art by LimeZu · limezu.itch.io", COL_MUTED, fnt_small);
     ui_draw_button(_x2 - 30 - 360 - 12 - 180, _by, 180, 42, "Rest (full heal)", "rest", 0);
     ui_draw_button(_x2 - 30 - 360, _by, 360, 42, $"Leave classroom with {_n} student{_n == 1 ? "" : "s"}", "leave", 0, true, true);
 }

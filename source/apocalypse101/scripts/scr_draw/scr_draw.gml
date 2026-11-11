@@ -69,7 +69,7 @@ function draw_world() {
     for (var _i = 0; _i < array_length(_G.enemies); _i++) array_push(_list, { k: _G.enemies[_i].z, t: 3, r: _G.enemies[_i] });
     array_push(_list, { k: _G.teacher.pz, t: 4, r: _G.teacher });
     for (var _i = 0; _i < array_length(_G.roster); _i++) array_push(_list, { k: _G.roster[_i].pz, t: 4, r: _G.roster[_i] });
-    array_sort(_list, function(_a, _b) { return _a.k - _b.k; });
+    array_sort(_list, function(_a, _b) { return sign(_a.k - _b.k); }); // sign(): comparator results are truncated to integers
 
     for (var _i = 0; _i < array_length(_list); _i++) {
         var _e = _list[_i];
@@ -142,8 +142,9 @@ function draw_box(_b) {
             draw_rectangle(_x1, _top, _x2, _bot, true);
             draw_rectangle(_x1 + 1, _top + 1, _x2 - 1, _bot - 1, true);
             break;
-        case "board":   atl_draw_bc("board", _mx, _y2 - 0.9 * U); break;
-        case "desk":    atl_draw_bc("desk", _mx, _y2 + 0.2 * U); break;
+        case "wallart": atl_draw_bc(_b.art, _mx, _y2 - 0.9 * U); break;
+        case "desk":    atl_draw_bc(_b.art, _mx, _y2 + 0.2 * U); break;
+        case "prop":    atl_draw_bc(_b.art, _mx, _y2 + 0.2 * U); break;
         case "table":   atl_draw_bc("workbench", _mx, _y2 + 0.3 * U); break;
         case "school":  atl_draw_bc("school", _mx, _y2 + 2 * U); break;
         case "tower":   atl_draw_bc("tower", _mx, _y2 + 0.4 * U); break;
@@ -422,7 +423,7 @@ function draw_combat() {
 
     // Enemies, far to near
     var _es = arr_copy(_c.enemies);
-    array_sort(_es, function(_a, _b) { return _a.hz - _b.hz; });
+    array_sort(_es, function(_a, _b) { return sign(_a.hz - _b.hz); });
     for (var _i = 0; _i < array_length(_es); _i++) draw_combat_enemy(_es[_i]);
 
     // Flicker darkness
@@ -461,38 +462,28 @@ function draw_combat_enemy(_e) {
     var _x = _e.hx + (_e.hitT > 0 ? sin(_G.time * 70) * 0.15 : 0);
     var _z = _e.hz + sin((_e.lunge / 0.4) * pi) * 3.5;
     var _y = sin(_G.time * 2 + _e.hx) * 0.12;
-    var _bot = cproj(_x, _y, _z), _top = cproj(_x, _y + 1.9 * _sc, _z), _head = cproj(_x, _y + 1.95 * _sc, _z);
-    var _k = _bot[2];
-    var _bw = 0.45 * _sc * _k, _hr = 0.4 * _sc * _k;
-    var _col = cfog(_e.colour, _bot[3] - 4);
+    var _bot = cproj(_x, _y, _z), _head = cproj(_x, _y + 1.6 * _sc, _z);
+    var _k = _bot[2], _hr = 0.4 * _sc * _k;
+
+    // Fantasy Battlers sprite (LimeZu), tinted into a shadow creature and fogged by distance
+    var _art = _e.name == "Hollow" ? "bt_hollow" : "bt_shade";
+    var _tint = _e.name == "Hollow" ? rgb(0x9ec4bc) : rgb(0xa890d0);
+    var _r = global.ATLAS[$ _art];
+    var _s = (2.1 * _sc * _k) / _r[3];                       // ~2.1 world units tall at full size
+    var _dx = round(_bot[0] - _r[2] * _s / 2), _dy = round(_bot[1] - _r[3] * _s);
 
     gpu_set_blendmode(bm_add);
-    draw_circle_colour(_head[0], (_head[1] + _bot[1]) / 2, 1.4 * _sc * _k, merge_colour(c_black, _e.eye, 0.12), c_black, false);
+    draw_circle_colour(_head[0], (_head[1] + _bot[1]) / 2, 1.4 * _sc * _k, merge_colour(c_black, _e.eye, 0.14), c_black, false);
     gpu_set_blendmode(bm_normal);
 
-    draw_set_colour(_col);
-    draw_roundrect_ext(_bot[0] - _bw, _top[1] + _bw * 0.4, _bot[0] + _bw, _bot[1], _bw, _bw, false);
-    draw_circle(_head[0], _head[1], _hr, false);
-    draw_set_colour(merge_colour(_col, _e.eye, 0.22));
-    draw_circle(_head[0], _head[1], _hr, true);
-    draw_roundrect_ext(_bot[0] - _bw, _top[1] + _bw * 0.4, _bot[0] + _bw, _bot[1], _bw, _bw, true);
-
+    gpu_set_tex_filter(false);
+    draw_sprite_part_ext(spr_atlas, 0, _r[0], _r[1], _r[2], _r[3], _dx, _dy, _s, _s, cfog(_tint, _bot[3] - 4), 1);
     if (_e.hitT > 0) {
-        draw_set_alpha(_e.hitT / 0.4 * 0.6); draw_set_colour(c_white);
-        draw_circle(_head[0], _head[1], _hr, false);
-        draw_roundrect_ext(_bot[0] - _bw, _top[1] + _bw * 0.4, _bot[0] + _bw, _bot[1], _bw, _bw, false);
-        draw_set_alpha(1);
+        gpu_set_fog(true, c_white, 0, 1);
+        draw_sprite_part_ext(spr_atlas, 0, _r[0], _r[1], _r[2], _r[3], _dx, _dy, _s, _s, c_white, _e.hitT / 0.4 * 0.7);
+        gpu_set_fog(false, c_white, 0, 1);
     }
-
-    // eyes
-    for (var _s = -1; _s <= 1; _s += 2) {
-        var _ep = cproj(_x + _s * 0.15 * _sc, _y + 2.0 * _sc, _z);
-        gpu_set_blendmode(bm_add);
-        draw_circle_colour(_ep[0], _ep[1], 0.25 * _sc * _k, merge_colour(c_black, _e.eye, 0.6), c_black, false);
-        gpu_set_blendmode(bm_normal);
-        draw_set_colour(_e.eye);
-        draw_circle(_ep[0], _ep[1], max(2, 0.07 * _sc * _k), false);
-    }
+    gpu_set_tex_filter(true);
 
     if (_e.stunned) {
         var _sp = cproj(_x, _y + 2.55 * _sc, _z);
