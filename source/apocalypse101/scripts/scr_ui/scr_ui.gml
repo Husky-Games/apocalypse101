@@ -183,13 +183,13 @@ function draw_txt(_x, _y, _s, _col = COL_TEXT, _font = fnt_ui, _halign = fa_left
     draw_set_colour(_col);
     draw_set_halign(_halign);
     draw_set_valign(fa_top);
-    if (_w > 0) draw_text_ext(_x, _y, _s, -1, _w); else draw_text(_x, _y, _s);
+    if (_w > 0) tdraw_ext(_x, _y, _s, _w); else tdraw(_x, _y, _s);
     draw_set_halign(fa_left);
 }
 
 function txt_h(_s, _font, _w) {
     draw_set_font(_font);
-    return _w > 0 ? string_height_ext(_s, -1, _w) : string_height(_s);
+    return _w > 0 ? string_height_ext(_s, -1, _w / TXT_S) * TXT_S : string_height(_s) * TXT_S;
 }
 
 /// Standard button. Registers it and draws it.
@@ -206,7 +206,7 @@ function ui_draw_button(_x, _y, _w, _h, _label, _action, _arg, _enabled = true, 
     if (_sub == "") {
         draw_set_font(fnt_ui); draw_set_colour(_tc);
         draw_set_halign(fa_center); draw_set_valign(fa_middle);
-        draw_text(_x + _w / 2, _y + _h / 2, _label);
+        tdraw(_x + _w / 2, _y + _h / 2, _label);
         draw_set_halign(fa_left); draw_set_valign(fa_top);
     } else {
         draw_txt(_x + 12, _y + 6, _label, _tc, fnt_ui);

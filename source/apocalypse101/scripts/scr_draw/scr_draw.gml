@@ -102,7 +102,7 @@ function draw_box(_b) {
             draw_set_colour(rgb(0x3a4a6a));
             draw_rectangle(_r.x1, _top, _r.x2, _bot + 10, true);
             draw_set_font(fnt_small); draw_set_colour(rgb(0x2a3a8a)); draw_set_halign(fa_center);
-            draw_text((_r.x1 + _r.x2) / 2, _top - 2, "PARTY ROSTER");
+            tdraw((_r.x1 + _r.x2) / 2, _top - 2, "PARTY ROSTER");
             draw_set_halign(fa_left);
             break;
         case "table":
@@ -225,7 +225,7 @@ function draw_explore_enemy(_e) {
     draw_circle(_x + _fx + 5 * _s, _y - 53 * _s, 2.4 * _s, false);
     if (_e.count > 1) {
         draw_set_font(fnt_small); draw_set_halign(fa_center); draw_set_colour(_def.eye);
-        draw_text(_x, _y - 82 * _s, $"×{_e.count}");
+        tdraw(_x, _y - 82 * _s, $"×{_e.count}");
         draw_set_halign(fa_left);
     }
 }
@@ -313,7 +313,7 @@ function draw_hud() {
     // Interaction prompt
     if (_G.mode == "explore" && _G.prompt != "") {
         draw_set_font(fnt_ui);
-        var _pw = string_width(_G.prompt) + 36;
+        var _pw = twidth(_G.prompt) + 36;
         draw_panel(GUI_W / 2 - _pw / 2, GUI_H - 104, GUI_W / 2 + _pw / 2, GUI_H - 68, rgb(0x2a2414), COL_ACCENT, 0.95);
         draw_txt(GUI_W / 2, GUI_H - 99, _G.prompt, COL_ACCENT, fnt_ui, fa_center);
     }
@@ -332,7 +332,7 @@ function draw_hud() {
 
     // Controls help
     draw_txt(GUI_W / 2, GUI_H - 30,
-        "WASD / Arrows / Left stick  move  ·  E / Space / A  interact  ·  H / X  heal  ·  C / Y  craft anywhere  ·  J / Start  journal",
+        "WASD / Arrows / Left stick  move  ·  E / Space / A  interact  ·  H / X  heal  ·  C / Y  craft anywhere  ·  J / Start  journal  ·  F11  fullscreen",
         COL_MUTED, fnt_small, fa_center);
 }
 
@@ -534,7 +534,7 @@ function draw_combat_ui() {
     // Log
     if (_c.log != "" && !(is_struct(_c.menu) && _c.menu.kind == "result")) {
         draw_set_font(fnt_ui);
-        var _lw = min(820, string_width(_c.log) + 40);
+        var _lw = min(820, twidth(_c.log) + 40);
         var _lx = 480 - _lw / 2 + 0;
         draw_panel(_lx, GUI_H - 140, _lx + _lw, GUI_H - 104, COL_PANEL, COL_LINE, 0.85);
         draw_txt(_lx + _lw / 2, GUI_H - 135, _c.log, COL_TEXT, fnt_ui, fa_center);

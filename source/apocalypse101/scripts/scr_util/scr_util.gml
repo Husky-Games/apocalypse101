@@ -67,6 +67,7 @@ function key_any(_keys) {
 
 /// Confirm in menus/minigames: Space, Enter, E, or pad A.
 function inp_confirm() {
+    if (keyboard_check(vk_alt)) return false; // Alt+Enter = fullscreen
     return key_any_pressed([vk_space, vk_enter, ord("E")]) || pad_pressed(gp_face1);
 }
 
@@ -103,4 +104,57 @@ function dir_glyph(_d) {
         case "R": return "→";
     }
     return "?";
+}
+
+/* ---------------------------------------------------------------- display */
+// Fonts are rendered at 2x and drawn at half scale, so text stays crisp when
+// the 1280x720 layout is scaled up to large or high-DPI windows.
+
+#macro TXT_S 0.5
+
+function tdraw(_x, _y, _s) { draw_text_transformed(_x, _y, _s, TXT_S, TXT_S, 0); }
+function tdraw_ext(_x, _y, _s, _w) { draw_text_ext_transformed(_x, _y, _s, -1, _w / TXT_S, TXT_S, TXT_S, 0); }
+function twidth(_s) { return string_width(_s) * TXT_S; }
+
+/// Open the window at the largest quarter-step scale that fills ~85% of the screen.
+function display_init() {
+    global.disp_w = -1;
+    global.disp_h = -1;
+    var _s = min(display_get_width() * 0.85 / GUI_W, display_get_height() * 0.85 / GUI_H);
+    _s = max(1, floor(_s * 4) / 4);
+    window_set_size(round(GUI_W * _s), round(GUI_H * _s));
+    call_later(2, time_source_units_frames, function() { window_center(); });
+}
+
+/// Render at the window's real resolution (letterboxed to 16:9) whenever it changes size.
+/// The game draws the application surface itself (display_present) so it is scaled and
+/// centred correctly in fullscreen too.
+function display_update() {
+    if (keyboard_check_pressed(vk_f11)) window_set_fullscreen(!window_get_fullscreen());
+    var _fs = window_get_fullscreen();    var _ww = _fs ? display_get_width() : window_get_width();
+    var _wh = _fs ? display_get_height() : window_get_height();
+    if (_ww <= 0 || _wh <= 0) return; // minimized
+    if (_ww == global.disp_w && _wh == global.disp_h) return;
+    // Resize the swap chain to the new window/screen size (GameMaker keeps the old
+    // backbuffer size after a fullscreen switch otherwise).
+    if (global.disp_w > 0) display_reset(0, true);
+    global.disp_w = _ww;
+    global.disp_h = _wh;
+    var _s = min(_ww / GUI_W, _wh / GUI_H);
+    var _sw = round(GUI_W * _s), _sh = round(GUI_H * _s);
+    global.disp_x = floor((_ww - _sw) / 2);
+    global.disp_y = floor((_wh - _sh) / 2);
+    surface_resize(application_surface, _sw, _sh);
+    view_wport[0] = _sw;
+    view_hport[0] = _sh;
+    display_set_gui_maximize(_s, _s, global.disp_x, global.disp_y);
+}
+
+/// Post Draw: blit the game frame centred in the window with black bars around it.
+function display_present() {
+    draw_clear(c_black);
+    if (!surface_exists(application_surface) || global.disp_w < 0) return;
+    gpu_set_blendenable(false);
+    draw_surface(application_surface, global.disp_x, global.disp_y);
+    gpu_set_blendenable(true);
 }

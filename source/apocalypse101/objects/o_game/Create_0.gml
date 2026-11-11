@@ -1,6 +1,7 @@
 /// @description Boot: display, camera, game state
 window_set_caption("Apocalypse 101");
-display_set_gui_size(GUI_W, GUI_H);
+display_init(); // window size; display_update() handles scaling and F11 / Alt+Enter fullscreen
+application_surface_draw_enable(false); // drawn by display_present() in Post Draw
 
 view_enabled = true;
 view_visible[0] = true;

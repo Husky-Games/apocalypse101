@@ -365,6 +365,7 @@ function game_step() {
     _G.dt = min(0.05, delta_time / 1000000);
     _G.time += _G.dt;
     _G.pad = pad_find();
+    display_update();
     if (_G.toast_t > 0) _G.toast_t -= _G.dt;
 
     if (_G.finish_pending > 0) {
