@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" font-family="Segoe UI, Arial, sans-serif">
+  <title>Apocalypse 101 – campus map (clean redraw of MAP(ALL).png). Blue = tunnels under the school.</title>
+  <defs>
+    <pattern id="ruin" width="10" height="10" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="10" height="10" fill="#4a5a3c"/>
+      <line x1="0" y1="0" x2="0" y2="10" stroke="#2e3826" stroke-width="4"/>
+    </pattern>
+    <g id="door"><rect x="-10" y="-10" width="20" height="20" rx="3" fill="#7a1e1e" stroke="#fff" stroke-width="1.5"/><path d="M-6,-6 L6,6 M6,-6 L-6,6" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/></g>
+    <g id="goal"><circle r="12" fill="#1a2fb0" stroke="#fff" stroke-width="2"/><path d="M-6,-6 L6,6 M6,-6 L-6,6" stroke="#fff" stroke-width="3" stroke-linecap="round"/></g>
+  </defs>
+
+  <!-- grass -->
+  <rect width="1600" height="900" fill="#2f8f2f"/>
+
+  <!-- ============ walkways (grey) ============ -->
+  <g stroke="#b9bcc0" stroke-width="16" stroke-linecap="square" fill="none">
+    <!-- quad ring -->
+    <path d="M429,279 H1100 V529"/>
+    <path d="M429,279 V529 H504"/>
+    <path d="M642,529 H683 M825,529 H875 M1033,529 H1100"/>
+    <!-- central east-west avenue: Theater -> Library -->
+    <path d="M340,437 H1135"/>
+    <!-- north-south lanes through the quad -->
+    <path d="M575,279 V317 M575,400 V490"/>
+    <path d="M750,279 V312 M750,388 V488"/>
+    <path d="M954,279 V315 M954,392 V490"/>
+    <!-- short links: Main Classroom side doors -> neighbours -->
+    <path d="M638,356 H679 M825,354 H871"/>
+    <!-- north road: Gym and Cafeteria -->
+    <path d="M546,258 V279"/>
+    <path d="M1100,279 H1242 V223"/>
+  </g>
+
+  <!-- ============ buildings ============ -->
+  <g fill="#15171c">
+    <!-- 2 Gym + open-air annex -->
+    <rect x="392" y="54" width="316" height="204" rx="6"/>
+    <!-- 6 Cafeteria (main hall + kitchen block) -->
+    <rect x="958" y="133" width="404" height="90" rx="6"/>
+    <rect x="1192" y="100" width="125" height="40" rx="4"/>
+    <!-- 3 Theater (fan-shaped auditorium) -->
+    <path d="M282,271 Q336,300 356,352 Q300,440 338,540 Q296,588 242,614 Q160,450 282,271 Z"/>
+    <!-- 5 Library + rotunda entrance -->
+    <rect x="1179" y="329" width="179" height="221" rx="6"/>
+    <circle cx="1181" cy="437" r="48"/>
+    <!-- 4 Lab + covered corridors up to the quad -->
+    <rect x="504" y="646" width="325" height="133" rx="6"/>
+    <rect x="560" y="572" width="32" height="76"/>
+    <rect x="738" y="570" width="30" height="78"/>
+    <!-- quad: top row -->
+    <rect x="496" y="317" width="142" height="83" rx="5"/>
+    <rect x="679" y="312" width="146" height="76" rx="5"/>
+    <rect x="871" y="315" width="150" height="77" rx="5"/>
+    <!-- quad: bottom row (west block intact) -->
+    <rect x="504" y="490" width="138" height="85" rx="5"/>
+  </g>
+  <!-- gym annex: outlined, open to the sky -->
+  <rect x="229" y="79" width="163" height="163" fill="#3a9f3a" stroke="#15171c" stroke-width="8"/>
+  <!-- ruins -->
+  <g stroke="#15171c" stroke-width="7">
+    <rect x="683" y="488" width="142" height="85" fill="url(#ruin)"/>
+    <rect x="875" y="490" width="158" height="85" fill="url(#ruin)"/>
+  </g>
+
+  <!-- ============ labels ============ -->
+  <g fill="#fff" text-anchor="middle" font-weight="700">
+    <text x="550" y="150" font-size="34">2 · Gym</text>
+    <text x="310" y="228" font-size="16" fill="#0d2a0d">open-air annex</text>
+    <text x="1080" y="188" font-size="34">6 · Cafeteria</text>
+    <text x="1254" y="126" font-size="13">kitchen</text>
+    <text x="268" y="430" font-size="28">3</text>
+    <text x="268" y="460" font-size="20">Theater</text>
+    <text x="1290" y="430" font-size="34">5</text>
+    <text x="1290" y="462" font-size="22">Library</text>
+    <text x="590" y="735" font-size="34">4 · Lab</text>
+    <text x="752" y="345" font-size="19">1 · Main</text>
+    <text x="752" y="368" font-size="19">Classroom</text>
+    <text x="567" y="364" font-size="15" fill="#c8cede">Classroom A</text>
+    <text x="946" y="362" font-size="15" fill="#c8cede">Classroom B</text>
+    <text x="573" y="538" font-size="15" fill="#c8cede">Classroom C</text>
+    <text x="754" y="537" font-size="20" fill="#e6e6c8">Ruins</text>
+    <text x="954" y="539" font-size="20" fill="#e6e6c8">Ruins</text>
+  </g>
+
+  <!-- ============ underground tunnels (discovered mid-game) ============ -->
+  <g stroke="#1a2fb0" stroke-width="6" fill="none" stroke-dasharray="14 8" stroke-linejoin="round" stroke-linecap="round" opacity="0.9">
+    <polyline points="742,345 692,187 665,80"/>
+    <polyline points="692,187 640,198 560,198 450,180 288,178"/>
+    <polyline points="742,350 790,322 958,225 1000,205"/>
+    <polyline points="958,225 1108,433 1242,596 1325,520"/>
+    <polyline points="742,350 620,420 458,508 388,571 321,642 233,558"/>
+    <polyline points="458,508 560,580 680,718"/>
+    <polyline points="625,400 575,346"/>
+  </g>
+
+  <!-- ============ tunnel junctions, tunnel entrances (blue X) and blocked doors (white X) ============ -->
+  <g fill="#1a2fb0" stroke="#fff" stroke-width="2"><circle cx="692" cy="187" r="6"/><circle cx="958" cy="225" r="6"/><circle cx="458" cy="508" r="6"/></g>
+  <use href="#goal" x="665" y="80"/>
+  <use href="#goal" x="288" y="178"/>
+  <use href="#goal" x="1000" y="205"/>
+  <use href="#goal" x="1325" y="520"/>
+  <use href="#goal" x="680" y="718"/>
+  <use href="#goal" x="233" y="558"/>
+  <use href="#goal" x="575" y="346"/>
+
+  <use href="#door" x="575" y="312"/>
+  <use href="#door" x="491" y="358"/>
+  <use href="#door" x="643" y="356"/>
+  <use href="#door" x="575" y="405"/>
+  <use href="#door" x="750" y="307"/>
+  <use href="#door" x="750" y="393"/>
+  <use href="#door" x="674" y="354"/>
+  <use href="#door" x="830" y="354"/>
+  <use href="#door" x="954" y="310"/>
+  <use href="#door" x="866" y="354"/>
+
+  <!-- ============ legend ============ -->
+  <g transform="translate(1110,620)">
+    <rect width="460" height="250" rx="10" fill="#10151f" opacity="0.92"/>
+    <text x="20" y="34" fill="#ffb347" font-size="20" font-weight="700">Legend</text>
+    <g font-size="15" fill="#e8ecf4">
+      <rect x="20" y="52" width="28" height="18" fill="#15171c" stroke="#555"/><text x="60" y="66">Building</text>
+      <rect x="20" y="82" width="28" height="18" fill="url(#ruin)" stroke="#15171c" stroke-width="3"/><text x="60" y="96">Ruins (destroyed)</text>
+      <rect x="20" y="112" width="28" height="18" fill="#3a9f3a" stroke="#15171c" stroke-width="4"/><text x="60" y="126">Open-air area (gym annex)</text>
+      <line x1="20" y1="151" x2="48" y2="151" stroke="#b9bcc0" stroke-width="10"/><text x="60" y="156">Walkway</text>
+      <use href="#door" x="34" y="181"/><text x="60" y="186">Blocked / damaged door</text>
+      <use href="#goal" x="250" y="62"/><text x="272" y="66">Tunnel entrance</text>
+      <line x1="236" y1="92" x2="264" y2="92" stroke="#1a2fb0" stroke-width="5" stroke-dasharray="8 5"/><text x="272" y="96">Tunnel (found mid-game)</text>
+      <rect x="243" y="108" width="14" height="26" fill="#15171c" stroke="#777" stroke-width="1.5"/><text x="272" y="126">Covered corridor (to Lab)</text>
+      <circle cx="250" cy="181" r="6" fill="#1a2fb0" stroke="#fff" stroke-width="2"/><text x="272" y="186">Tunnel junction</text>
+      
+    </g>
+  </g>
+</svg>
