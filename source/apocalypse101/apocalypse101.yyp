@@ -25,6 +25,7 @@
   },
   "name":"apocalypse101",
   "resources":[
+    {"id":{"name":"scr_campus","path":"scripts/scr_campus/scr_campus.yy",},},
     {"id":{"name":"spr_ch_zuri","path":"sprites/spr_ch_zuri/spr_ch_zuri.yy",},},
     {"id":{"name":"spr_ch_scarlett","path":"sprites/spr_ch_scarlett/spr_ch_scarlett.yy",},},
     {"id":{"name":"spr_atlas","path":"sprites/spr_atlas/spr_atlas.yy",},},

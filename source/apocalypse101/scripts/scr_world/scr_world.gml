@@ -1,4 +1,7 @@
-// World layout and exploration, ported from prototype/src/main.js.
+// World state and exploration. The world is a set of areas (scr_campus builds them):
+// the outdoor campus plus one interior per building, joined by doors. Each area has its own
+// boxes/colliders/items/enemies; global.G.boxes etc. point at the current area's arrays.
+// Area coordinates are in world units with the origin at the area's top-left corner.
 
 function game_init() {
     data_init();
@@ -25,7 +28,10 @@ function game_init() {
         toast_text: "",
         toast_t: 0,
         prompt: "",
-        // world
+        // world: areas, and aliases of the current area's arrays
+        areas: {},
+        area: undefined,
+        door: undefined,       // door the prompt refers to
         colliders: [],
         boxes: [],
         trees: [],
@@ -33,7 +39,6 @@ function game_init() {
         tables: [],
         items: [],
         enemies: [],
-        fence: undefined,
         cam_x: 0, cam_y: 0,
         // ui buttons registered by the GUI each frame
         btns: [],
@@ -44,13 +49,57 @@ function game_init() {
         c: undefined,
         mini: undefined,
     };
-    world_build();
     party_build();
-    var _t = global.G.teacher;
-    global.G.cam_x = wx(_t.px) - GUI_W / 2;
-    global.G.cam_y = wy(_t.pz) - GUI_H / 2;
+    campus_build();
+    area_enter("main", MAIN_SPAWN_X, MAIN_SPAWN_Z, 270);
+    party_place();
     roster_open(true);
 }
+
+/* ------------------------------------------------------------------ areas */
+
+/// Create an area. Interiors get a room rectangle (floor bounds); the campus is outdoor.
+function area_new(_id, _name, _w, _h) {
+    var _A = {
+        id: _id, name: _name, w: _w, h: _h,
+        outdoor: false, safe: false, lit: false,
+        tint: rgb(0x8890b0),      // night multiply colour
+        floor: "floor", room: [0, 0, _w, _h], floors: [], decals: [], paths: [],
+        boxes: [], colliders: [], trees: [], decor: [], tables: [], items: [], enemies: [], doors: [],
+        fence: undefined,
+    };
+    global.G.areas[$ _id] = _A;
+    return _A;
+}
+
+/// Point the global world arrays at area _A (used while building and when entering).
+function area_use(_A) {
+    var _G = global.G;
+    _G.area = _A;
+    _G.boxes = _A.boxes; _G.colliders = _A.colliders; _G.trees = _A.trees; _G.decor = _A.decor;
+    _G.tables = _A.tables; _G.items = _A.items; _G.enemies = _A.enemies;
+}
+
+/// Move the party into area _id at (x, z), facing _face (0 right, 90 up, 180 left, 270 down).
+function area_enter(_id, _x, _z, _face) {
+    var _G = global.G, _A = _G.areas[$ _id];
+    area_use(_A);
+    var _t = _G.teacher;
+    _t.px = _x; _t.pz = _z; _t.py = 0; _t.face = _face; _t.moving = false;
+    // followers line up behind the leader
+    var _bx = -lengthdir_x(1, _face), _bz = -lengthdir_y(1, _face);
+    for (var _i = 0; _i < array_length(_G.party); _i++) {
+        var _m = _G.party[_i];
+        var _p = resolve_pos(_x + _bx * (_i + 1) * 0.9, _z + _bz * (_i + 1) * 0.9, 0.4);
+        _m.px = _p[0]; _m.pz = _p[1]; _m.py = 0; _m.face = _face; _m.moving = false;
+    }
+    _G.door = undefined;
+    var _c = camera_target();
+    _G.cam_x = _c[0]; _G.cam_y = _c[1];
+    toast(_A.name, 1.4);
+}
+
+function area_is(_id) { return global.G.area.id == _id; }
 
 /* ------------------------------------------------------------ world build */
 
@@ -65,6 +114,25 @@ function add_box(_x, _z, _w, _d, _h, _col, _collide = true, _y = 0, _kind = "box
     return { box: _b, col: _c };
 }
 
+/// Box from corners (x1, z1)-(x2, z2).
+function add_rect(_x1, _z1, _x2, _z2, _kind, _collide = true) {
+    return add_box((_x1 + _x2) / 2, (_z1 + _z2) / 2, _x2 - _x1, _z2 - _z1, 2, c_white, _collide, 0, _kind);
+}
+
+/// Furniture: atlas art drawn bottom-centred on a (w x d) footprint centred at (x, z).
+function add_prop(_art, _x, _z, _w = 1, _d = 0.8, _collide = true) {
+    var _r = add_box(_x, _z, _w, _d, 1, c_white, _collide, 0, "prop");
+    _r.box.art = _art;
+    return _r;
+}
+
+/// Picture/board hung on the north wall of a room whose wall line is at z = _wz.
+function add_wallart(_art, _x, _wz) {
+    var _r = add_box(_x, _wz + 0.5, 2, 0.2, 2, c_white, false, 0.6, "wallart");
+    _r.box.art = _art;
+    return _r;
+}
+
 function add_tree(_x, _z, _art) {
     array_push(global.G.trees, { x: _x, z: _z, art: _art });
     array_push(global.G.colliders, { minX: _x - 0.4, maxX: _x + 0.4, minZ: _z - 0.4, maxZ: _z + 0.4 });
@@ -73,6 +141,11 @@ function add_tree(_x, _z, _art) {
 /// Non-colliding scenery sprite (atlas name), anchored bottom-centre at (x, z).
 function add_decor(_art, _x, _z) {
     array_push(global.G.decor, { art: _art, x: _x, z: _z });
+}
+
+/// Flat art on the ground. mode "center": one copy centred in the rect; "tile": repeated.
+function add_decal(_art, _x1, _z1, _x2, _z2, _mode = "center") {
+    array_push(global.G.area.decals, { art: _art, x1: _x1, z1: _z1, x2: _x2, z2: _z2, mode: _mode });
 }
 
 function add_table(_x, _z) {
@@ -91,86 +164,48 @@ function add_explore_enemy(_type, _count, _x, _z) {
     });
 }
 
-function world_build() {
-    var _wall = rgb(0xc9c2b0);
-    // Classroom (home base)
-    add_box(-22, -8, 12.6, 0.6, 3, _wall, true, 0, "wall_n"); // north wall shows its face
-    add_box(-22, 8, 12.6, 0.6, 3, _wall, true, 0, "wall");
-    add_box(-28, 0, 0.6, 16.6, 3, _wall, true, 0, "wall");
-    add_box(-16, -5, 0.6, 6, 3, _wall, true, 0, "wall");
-    add_box(-16, 5, 0.6, 6, 3, _wall, true, 0, "wall");
-    var _desks = [[-26, 3.5], [-23, 3.5], [-20, 3.5], [-26, 6], [-23, 6], [-20, 6]];
-    for (var _i = 0; _i < array_length(_desks); _i++) { var _d = add_box(_desks[_i][0], _desks[_i][1], 2, 1, 0.8, rgb(0x7a5a3a), true, 0, "desk"); _d.box.art = "desk" + string(_i + 1); }
-    var _p1 = add_box(-20, -7.5, 4, 0.3, 2, rgb(0xf4f4f4), false, 0.6, "wallart"); _p1.box.art = "board"; // roster chalkboard
-    var _p2 = add_box(-24.6, -7.6, 2, 0.2, 2, rgb(0xf4f4f4), false, 0.6, "wallart"); _p2.box.art = "map";
-    var _p3 = add_box(-17.4, -7.6, 2, 0.2, 2, rgb(0xf4f4f4), false, 0.6, "wallart"); _p3.box.art = "cork";
-    var _p4 = add_box(-18.4, -5.4, 1.8, 0.8, 1, rgb(0x2a5a4a), true, 0, "prop"); _p4.box.art = "tdesk";   // teacher's desk
-    var _p5 = add_box(-27.3, -7.25, 0.8, 0.5, 2, rgb(0x8090a0), true, 0, "prop"); _p5.box.art = "locker";
-    add_table(-26, -5.5);
-
-    // Campus
-    // Collider = building footprint; the sprite (atlas name = kind) is drawn bottom-centred on it.
-    add_box(-4, -15, 24, 10, 4, rgb(0x6d6a78), true, 0, "school");   // main school building (lecture hall)
-    add_box(6, 14, 7, 3.5, 4, rgb(0x7a6a5a), true, 0, "tower");      // clock tower (library)
-    add_box(-9, 12, 4, 2, 1.2, rgb(0x555b66), true, 0, "car1");      // wrecked cars
-    add_box(10, -4, 4, 2, 1.2, rgb(0x555b66), true, 0, "car2");
-    var _trees = [[-12, 8, "tree_dead1"], [-10, -4, "tree_big"], [3, 4, "tree_dead2"], [12, 5, "tree_leaf1"], [13, -14, "tree_dead1"],
-                  [-2, 17, "tree_leaf2"], [10, -8, "tree_dead2"], [22, 15, "tree_big"], [27, -6, "tree_leaf1"], [19, -15, "tree_dead1"]];
-    for (var _i = 0; _i < array_length(_trees); _i++) add_tree(_trees[_i][0], _trees[_i][1], _trees[_i][2]);
-
-    // The fence (needs the whole party to clear it)
-    global.G.fence = add_box(FENCE_X, 0, 0.7, 40, 2.4, rgb(0xa85a2a), true, 0, "fence");
-    // East quad
-    add_table(24, -10);
-    add_box(22, 10, 4, 2, 2.4, rgb(0x4a3d5a), true, 0, "container");
-
-    // Scenery
-    add_decor("sign", 15.1, -2.9); add_decor("sign", 15.1, 3.3);
-    add_decor("junk", -6.5, 12.6); add_decor("junk", 12.3, -3.2); add_decor("junk", 20, 11.6);
-    add_decor("bench", -12.5, -2.8); add_decor("bench", 4, -2.8);
-
-    // Items
-    var _spots = [
-        ["cloth", -10, 4], ["cloth", -12, -7], ["scrap", -8, -1], ["scrap", 2, -3], ["scrap", 5, 3], ["medkit", 0, 14],
-        ["energy", 10, -12], ["clue", -6, -7.5], ["clue", 8, -7],
-        ["food", -11, 2.8], ["food", 7, 6], ["food", 24, -2], ["scrap", 22, 6], ["cloth", 20, -4], ["cloth", 25, 4], ["medkit", 26, 13], ["energy", 21, 14], ["scrap", 28, -12],
-        ["clue", 27, -15], ["clue", 28, 1],
-    ];
-    for (var _i = 0; _i < array_length(_spots); _i++) add_item(_spots[_i][0], _spots[_i][1], _spots[_i][2]);
-
-    // Enemies
-    var _groups = [
-        ["shade", 1, -8, 9], ["shade", 2, 2, -6], ["shade", 1, 9, 0], ["shade", 2, 11, 14], ["shade", 1, -3, 16],
-        ["hollow", 2, 22, -5], ["hollow", 3, 24, 9],
-    ];
-    for (var _i = 0; _i < array_length(_groups); _i++) add_explore_enemy(_groups[_i][0], _groups[_i][1], _groups[_i][2], _groups[_i][3]);
+/// A door trigger at (x, z) in the current area leading to area _to at (tx, tz) facing _tface.
+/// Blocked doors only show a message.
+function add_door(_x, _z, _to, _tx, _tz, _tface, _label, _blocked = false) {
+    var _d = { x: _x, z: _z, to: _to, tx: _tx, tz: _tz, face: _tface, label: _label, blocked: _blocked };
+    array_push(global.G.area.doors, _d);
+    return _d;
 }
 
 /* ------------------------------------------------------------ party setup */
+
+#macro MAIN_SPAWN_X 9
+#macro MAIN_SPAWN_Z 11
+#macro BOARD_X 9
+#macro BOARD_Z 4.6
 
 function party_build() {
     var _G = global.G;
     _G.teacher = make_member(global.TEACHER);
     _G.teacher.scale = 1.12;
-    _G.teacher.px = -20; _G.teacher.pz = 0;
+    _G.teacher.px = MAIN_SPAWN_X; _G.teacher.pz = MAIN_SPAWN_Z;
     _G.roster = [];
     for (var _i = 0; _i < array_length(global.STUDENTS); _i++) array_push(_G.roster, make_member(global.STUDENTS[_i]));
-    party_place();
 }
 
+/// Party members follow the teacher; the rest wait in the Main Classroom.
 function party_place() {
     var _G = global.G;
-    var _idle = [[-26.8, -2.5], [-25.4, -2.5], [-24, -2.5], [-22.6, -2.5], [-21.2, -2.5], [-19.8, -2.5], [-18.4, -2.5], [-17, -2.5]];
     var _t = _G.teacher;
     for (var _i = 0; _i < array_length(_G.roster); _i++) {
         var _m = _G.roster[_i];
         var _k = array_get_index(_G.party, _m);
         if (_k >= 0) { _m.px = _t.px - 1 - _k * 0.2; _m.pz = _t.pz + 0.8 + _k * 0.8; }
-        else { _m.px = _idle[_i][0]; _m.pz = _idle[_i][1]; }
+        else { _m.px = 2.2 + _i * 1.4; _m.pz = 8.5; }
         _m.py = 0;
         _m.moving = false;
         _m.face = 270;
     }
+}
+
+/// Is roster member _m visible in the current area? (waiting students stay in the classroom)
+function member_here(_m) {
+    return _m == global.G.teacher || arr_has(global.G.party, _m) || area_is("main");
 }
 
 /* ------------------------------------------------------------ exploration */
@@ -181,14 +216,34 @@ function near_table(_x, _z, _r = 2.6) {
     return false;
 }
 
-function in_classroom(_x) { return _x < CLASSROOM_MAX_X; }
+function near_fence(_x, _z) {
+    var _f = global.G.area.fence;
+    if (!is_struct(_f) || global.G.fence_cleared || abs(_x - _f.x) >= 2.4) return false;
+    for (var _i = 0; _i < array_length(_f.segs); _i++) if (_z >= _f.segs[_i][0] && _z <= _f.segs[_i][1]) return true;
+    return false;
+}
+
+function nearest_door(_x, _z) {
+    var _ds = global.G.area.doors, _best = undefined, _bd = 1.7;
+    for (var _i = 0; _i < array_length(_ds); _i++) {
+        var _d = point_distance(_ds[_i].x, _ds[_i].z, _x, _z);
+        if (_d < _bd) { _bd = _d; _best = _ds[_i]; }
+    }
+    return _best;
+}
 
 /// Returns { label, action } or undefined.
 function find_interact() {
-    var _t = global.G.teacher;
+    var _G = global.G, _t = _G.teacher;
+    var _door = nearest_door(_t.px, _t.pz);
+    _G.door = _door;
+    if (is_struct(_door)) {
+        if (_door.blocked) return { label: "E / Space / A: Try the door", action: "door" };
+        return { label: "E / Space / A: " + _door.label, action: "door" };
+    }
     if (near_table(_t.px, _t.pz)) return { label: "E / Space / A: Craft", action: "craft" };
-    if (point_distance(_t.px, _t.pz, -20, -6.4) < 3) return { label: "E / Space / A: Change party", action: "roster" };
-    if (!global.G.fence_cleared && abs(_t.px - FENCE_X) < 2.4) return { label: "E / Space / A: Jump the fence", action: "fence" };
+    if (area_is("main") && point_distance(_t.px, _t.pz, BOARD_X, BOARD_Z) < 3) return { label: "E / Space / A: Change party", action: "roster" };
+    if (near_fence(_t.px, _t.pz)) return { label: "E / Space / A: Jump the fence", action: "fence" };
     return undefined;
 }
 
@@ -196,10 +251,17 @@ function interact() {
     var _a = find_interact();
     if (is_undefined(_a)) return;
     switch (_a.action) {
+        case "door": use_door(global.G.door); break;
         case "craft": craft_open(); break;
         case "roster": roster_open(false); break;
         case "fence": try_fence(); break;
     }
+}
+
+function use_door(_d) {
+    if (!is_struct(_d)) return;
+    if (_d.blocked) { toast("The door is jammed shut. Something heavy is wedged against it.", 2.6); return; }
+    area_enter(_d.to, _d.tx, _d.tz, _d.face);
 }
 
 function try_fence() {
@@ -211,8 +273,8 @@ function try_fence() {
         return;
     }
     _G.fence_cleared = true;
-    arr_remove(_G.colliders, _G.fence.col);
-    _G.fence.box.squash = 0.25;
+    var _f = _G.area.fence;
+    for (var _i = 0; _i < array_length(_f.cols); _i++) arr_remove(_G.colliders, _f.cols[_i]);
     toast("The whole party vaults the fence together.");
 }
 
@@ -259,7 +321,7 @@ function finish_demo() {
     overlay_open("finish", true);
 }
 
-/// Push a circle of radius _r (at struct _p.{px,pz} or .{x,z}) out of all colliders.
+/// Push a circle of radius _r out of all colliders and keep it inside the area.
 function resolve_pos(_x, _z, _r) {
     var _cs = global.G.colliders;
     for (var _i = 0; _i < array_length(_cs); _i++) {
@@ -279,7 +341,8 @@ function resolve_pos(_x, _z, _r) {
             else _z = _c.maxZ + _r;
         }
     }
-    return [clamp(_x, -BOUND_X, BOUND_X), clamp(_z, -BOUND_Z, BOUND_Z)];
+    var _A = global.G.area;
+    return [clamp(_x, 0.5, _A.w - 0.5), clamp(_z, 0.5, _A.h - 0.5)];
 }
 
 function explore_update(_dt) {
@@ -331,16 +394,17 @@ function explore_update(_dt) {
     }
 
     // Hop over the lowered fence
-    if (_G.fence_cleared) {
+    var _f = _G.area.fence;
+    if (_G.fence_cleared && is_struct(_f)) {
         var _all = everyone();
         for (var _i = 0; _i < array_length(_all); _i++) {
-            var _fx = abs(_all[_i].px - FENCE_X);
+            var _fx = abs(_all[_i].px - _f.x);
             if (_fx < 1.8) _all[_i].py += 1.1 * (1 - _fx / 1.8);
         }
     }
 
-    // Enemies wander, and chase outside the classroom
-    var _safe = in_classroom(_t.px);
+    // Enemies wander, and chase unless the area is safe
+    var _safe = _G.area.safe;
     for (var _i = 0; _i < array_length(_G.enemies); _i++) {
         var _e = _G.enemies[_i];
         var _d = point_distance(_t.px, _t.pz, _e.x, _e.z);
@@ -356,7 +420,7 @@ function explore_update(_dt) {
         var _ex = _e.tx - _e.x, _ez = _e.tz - _e.z, _dd = point_distance(0, 0, _ex, _ez);
         if (_dd > 0.2) {
             var _p3 = resolve_pos(_e.x + (_ex / _dd) * _speed * _dt, _e.z + (_ez / _dd) * _speed * _dt, 0.5);
-            _e.x = max(_p3[0], CLASSROOM_MAX_X + 0.6); _e.z = _p3[1];
+            _e.x = _p3[0]; _e.z = _p3[1];
             _e.face = point_direction(0, 0, _ex, _ez);
         }
         if (!_safe && _d < 1.2) { combat_start(_e); return; }
@@ -372,15 +436,22 @@ function explore_update(_dt) {
     _G.prompt = is_undefined(_act) ? "" : _act.label;
 }
 
+/// Camera position that follows the teacher, clamped to the area (centred if the area is small).
+function camera_target() {
+    var _G = global.G, _t = _G.teacher, _A = _G.area;
+    var _vw = camera_get_view_width(view_camera[0]), _vh = camera_get_view_height(view_camera[0]);
+    var _aw = _A.w * U, _ah = _A.h * U;
+    var _tx = _aw <= _vw ? (_aw - _vw) / 2 : clamp(wx(_t.px) - _vw / 2, 0, _aw - _vw);
+    var _ty = _ah <= _vh ? (_ah - _vh) / 2 : clamp(wy(_t.pz + 1) - _vh / 2, 0, _ah - _vh);
+    return [_tx, _ty];
+}
+
 function camera_update(_dt) {
     var _G = global.G;
-    var _t = _G.teacher;
-    var _vw = camera_get_view_width(view_camera[0]), _vh = camera_get_view_height(view_camera[0]);
-    var _tx = clamp(wx(_t.px) - _vw / 2, 0, room_width - _vw);
-    var _ty = clamp(wy(_t.pz + 1) - _vh / 2, 0, room_height - _vh);
+    var _c = camera_target();
     var _k = 1 - power(0.001, _dt);
-    _G.cam_x = lerp(_G.cam_x, _tx, _k);
-    _G.cam_y = lerp(_G.cam_y, _ty, _k);
+    _G.cam_x = lerp(_G.cam_x, _c[0], _k);
+    _G.cam_y = lerp(_G.cam_y, _c[1], _k);
     camera_set_view_pos(view_camera[0], round(_G.cam_x), round(_G.cam_y));
 }
 

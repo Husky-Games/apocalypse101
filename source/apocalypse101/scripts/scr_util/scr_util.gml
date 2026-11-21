@@ -7,18 +7,14 @@
 #macro GUI_W 1280
 #macro GUI_H 720
 #macro MAX_PARTY 3
-#macro BOUND_X 29.5
-#macro BOUND_Z 19.5
-#macro FENCE_X 16
-#macro CLASSROOM_MAX_X -15.5
 
 /// Convert a 0xRRGGBB literal to a GameMaker (BGR) colour.
 function rgb(_hex) {
     return make_colour_rgb((_hex >> 16) & 255, (_hex >> 8) & 255, _hex & 255);
 }
 
-function wx(_x) { return (_x + 30) * U; }
-function wy(_z) { return (_z + 20) * U; }
+function wx(_x) { return _x * U; }   // area coordinates: origin at the area's top-left
+function wy(_z) { return _z * U; }
 
 function arr_copy(_a) {
     var _b = array_create(array_length(_a));

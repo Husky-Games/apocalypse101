@@ -24,13 +24,59 @@ function atl_tile(_name, _ix, _iz) {
     draw_sprite_part_ext(spr_atlas, 0, _r[0] + _cx, _r[1] + _cz, 16, 16, _ix * U, _iz * U, AS, AS, c_white, 1);
 }
 
-/// Which ground tile sits at grid cell (ix, iz).
+/// Which ground tile sits at grid cell (ix, iz) of the current area ("" = nothing, black).
 function ground_at(_ix, _iz) {
-    var _x = _ix - 30 + 0.5, _z = _iz - 20 + 0.5;
-    if (_x > -28 && _x < -16 && _z > -8 && _z < 8) return "floor";
-    if (_x > 16.5) return "pave";
-    if (_x > -22 && _x < 18 && abs(_z) < 2.5) return "asphalt";
-    return ((_ix * 7 + _iz * 13) mod 9 == 0) ? "grass2" : "grass";
+    var _A = global.G.area;
+    var _x = _ix + 0.5, _z = _iz + 0.5;
+    if (_A.outdoor) {
+        for (var _i = 0; _i < array_length(_A.paths); _i++) {
+            var _p = _A.paths[_i];
+            if (_x >= _p[0] && _x < _p[2] && _z >= _p[1] && _z < _p[3]) return "pave";
+        }
+        return ((_ix * 7 + _iz * 13) mod 9 == 0) ? "grass2" : "grass";
+    }
+    var _r = _A.room;
+    if (_x < _r[0] || _x > _r[2] || _z < _r[1] || _z > _r[3]) return "";
+    for (var _i = array_length(_A.floors) - 1; _i >= 0; _i--) {
+        var _f = _A.floors[_i];
+        if (_x >= _f[0] && _x < _f[2] && _z >= _f[1] && _z < _f[3]) return _f[4];
+    }
+    return _A.floor;
+}
+
+/// Tile the art region (sx, sy, sw, sh) of the atlas over a room-pixel rectangle, clipping the last row/column.
+function atl_fill(_sx, _sy, _sw, _sh, _x1, _y1, _x2, _y2, _col = c_white, _a = 1) {
+    for (var _y = _y1; _y < _y2 - 0.5; _y += _sh * AS) {
+        var _h = min(_sh, (_y2 - _y) / AS);
+        for (var _x = _x1; _x < _x2 - 0.5; _x += _sw * AS) {
+            var _w = min(_sw, (_x2 - _x) / AS);
+            draw_sprite_part_ext(spr_atlas, 0, _sx, _sy, _w, _h, _x, _y, AS, AS, _col, _a);
+        }
+    }
+}
+
+/// Draw atlas art _name as a 9-slice (16 px corners) stretched by tiling over a rectangle.
+function atl_nine(_name, _x1, _y1, _x2, _y2) {
+    var _r = global.ATLAS[$ _name], _c = 16, _C = 16 * AS;
+    var _iw = _r[2] - 2 * _c, _ih = _r[3] - 2 * _c;
+    atl_fill(_r[0] + _c, _r[1] + _c, _iw, _ih, _x1 + _C, _y1 + _C, _x2 - _C, _y2 - _C);         // centre
+    atl_fill(_r[0] + _c, _r[1], _iw, _c, _x1 + _C, _y1, _x2 - _C, _y1 + _C);                    // top
+    atl_fill(_r[0] + _c, _r[1] + _r[3] - _c, _iw, _c, _x1 + _C, _y2 - _C, _x2 - _C, _y2);       // bottom
+    atl_fill(_r[0], _r[1] + _c, _c, _ih, _x1, _y1 + _C, _x1 + _C, _y2 - _C);                    // left
+    atl_fill(_r[0] + _r[2] - _c, _r[1] + _c, _c, _ih, _x2 - _C, _y1 + _C, _x2, _y2 - _C);       // right
+    draw_sprite_part_ext(spr_atlas, 0, _r[0], _r[1], _c, _c, _x1, _y1, AS, AS, c_white, 1);
+    draw_sprite_part_ext(spr_atlas, 0, _r[0] + _r[2] - _c, _r[1], _c, _c, _x2 - _C, _y1, AS, AS, c_white, 1);
+    draw_sprite_part_ext(spr_atlas, 0, _r[0], _r[1] + _r[3] - _c, _c, _c, _x1, _y2 - _C, AS, AS, c_white, 1);
+    draw_sprite_part_ext(spr_atlas, 0, _r[0] + _r[2] - _c, _r[1] + _r[3] - _c, _c, _c, _x2 - _C, _y2 - _C, AS, AS, c_white, 1);
+}
+
+/// Red "X" on a door that will not open (white X on the campus map).
+function draw_blocked_mark(_x, _y, _s = 1) {
+    var _h = 9 * _s;
+    draw_set_colour(rgb(0x7a1e1e)); draw_rectangle(_x - _h - 2, _y - _h - 2, _x + _h + 2, _y + _h + 2, false);
+    draw_set_colour(c_white);
+    draw_line_width(_x - _h + 2, _y - _h + 2, _x + _h - 2, _y + _h - 2, 4 * _s);
+    draw_line_width(_x + _h - 2, _y - _h + 2, _x - _h + 2, _y + _h - 2, 4 * _s);
 }
 
 /* ================================================================ world */
@@ -38,37 +84,54 @@ function ground_at(_ix, _iz) {
 function draw_world() {
     var _G = global.G;
     if (_G.mode == "combat") return;
+    var _A = _G.area;
     gpu_set_tex_filter(false);
 
-    // Ground: only the tiles inside the camera view
+    // Ground: only the tiles inside the camera view; nothing outside the area
     var _cam = view_camera[0];
     var _cx = camera_get_view_x(_cam), _cy = camera_get_view_y(_cam);
+    var _vw = camera_get_view_width(_cam), _vh = camera_get_view_height(_cam);
+    draw_set_colour(c_black);
+    draw_rectangle(_cx - 2, _cy - 2, _cx + _vw + 2, _cy + _vh + 2, false);
     var _ix0 = max(0, floor(_cx / U)), _iz0 = max(0, floor(_cy / U));
-    var _ix1 = min(room_width div U - 1, ceil((_cx + camera_get_view_width(_cam)) / U));
-    var _iz1 = min(room_height div U - 1, ceil((_cy + camera_get_view_height(_cam)) / U));
+    var _ix1 = min(ceil(_A.w) - 1, ceil((_cx + _vw) / U)), _iz1 = min(ceil(_A.h) - 1, ceil((_cy + _vh) / U));
     for (var _iz = _iz0; _iz <= _iz1; _iz++)
-        for (var _ix = _ix0; _ix <= _ix1; _ix++) atl_tile(ground_at(_ix, _iz), _ix, _iz);
+        for (var _ix = _ix0; _ix <= _ix1; _ix++) {
+            var _g = ground_at(_ix, _iz);
+            if (_g != "") atl_tile(_g, _ix, _iz);
+        }
+    // Flat things on the ground: courts, mats, rugs
+    for (var _i = 0; _i < array_length(_A.decals); _i++) {
+        var _d = _A.decals[_i], _r = global.ATLAS[$ _d.art];
+        if (_d.mode == "tile") atl_fill(_r[0], _r[1], _r[2], _r[3], wx(_d.x1), wy(_d.z1), wx(_d.x2), wy(_d.z2));
+        else atl_draw(_d.art, round(wx((_d.x1 + _d.x2) / 2) - _r[2] * AS / 2), round(wy((_d.z1 + _d.z2) / 2) - _r[3] * AS / 2));
+    }
 
     // Depth-sorted scene (by the front edge of each thing)
     var _list = [];
     for (var _i = 0; _i < array_length(_G.boxes); _i++) {
         var _b = _G.boxes[_i];
-        if (_b.kind == "fence") {
-            // one entry per post so characters sort correctly against it
-            for (var _z = -20 + 28 / 16; _z <= 20.01; _z += 28 / 16) {
-                if (_G.fence_cleared && abs(_z - 0.3) < 2.4) continue; // the gap the party vaulted
-                array_push(_list, { k: _z, t: 5, r: _z });
+        if (_b.kind == "none") continue;
+        // boarded doors draw over their wall (north) or on top of everything (thin side walls)
+        var _k = _b.kind == "doorx" ? (_b.side == "n" ? _b.z2 + 0.6 : 9999) : _b.z2;
+        array_push(_list, { k: _k, t: 0, r: _b });
+    }
+    var _f = _A.fence;
+    if (is_struct(_f)) {
+        // one entry per post so characters sort correctly against it
+        for (var _s = 0; _s < array_length(_f.segs); _s++)
+            for (var _z = _f.segs[_s][0] + 28 / 16; _z <= _f.segs[_s][1] + 0.01; _z += 28 / 16) {
+                var _gap = false;
+                if (_G.fence_cleared) for (var _k = 0; _k < array_length(_f.gaps); _k++) if (abs(_z - _f.gaps[_k]) < 2.2) _gap = true;
+                if (!_gap) array_push(_list, { k: _z, t: 5, r: _z });
             }
-            continue;
-        }
-        array_push(_list, { k: _b.z2, t: 0, r: _b });
     }
     for (var _i = 0; _i < array_length(_G.trees); _i++) array_push(_list, { k: _G.trees[_i].z + 0.4, t: 1, r: _G.trees[_i] });
     for (var _i = 0; _i < array_length(_G.decor); _i++) array_push(_list, { k: _G.decor[_i].z, t: 6, r: _G.decor[_i] });
     for (var _i = 0; _i < array_length(_G.items); _i++) array_push(_list, { k: _G.items[_i].z, t: 2, r: _G.items[_i] });
     for (var _i = 0; _i < array_length(_G.enemies); _i++) array_push(_list, { k: _G.enemies[_i].z, t: 3, r: _G.enemies[_i] });
     array_push(_list, { k: _G.teacher.pz, t: 4, r: _G.teacher });
-    for (var _i = 0; _i < array_length(_G.roster); _i++) array_push(_list, { k: _G.roster[_i].pz, t: 4, r: _G.roster[_i] });
+    for (var _i = 0; _i < array_length(_G.roster); _i++) if (member_here(_G.roster[_i])) array_push(_list, { k: _G.roster[_i].pz, t: 4, r: _G.roster[_i] });
     array_sort(_list, function(_a, _b) { return sign(_a.k - _b.k); }); // sign(): comparator results are truncated to integers
 
     for (var _i = 0; _i < array_length(_list); _i++) {
@@ -79,23 +142,24 @@ function draw_world() {
             case 2: draw_item(_e.r); break;
             case 3: draw_explore_enemy(_e.r); break;
             case 4: draw_char(_e.r); break;
-            case 5: atl_draw_bc("fence", wx(FENCE_X), wy(_e.r)); break;
+            case 5: atl_draw_bc("fence", wx(_f.x), wy(_e.r)); break;
             case 6: atl_draw_bc(_e.r.art, wx(_e.r.x), wy(_e.r.z)); break;
         }
     }
 
-    // Night: multiply everything by a cool dark tint...
-    var _vw = camera_get_view_width(_cam), _vh = camera_get_view_height(_cam);
+    // Night: multiply everything by the area's tint...
     gpu_set_blendmode_ext(bm_dest_colour, bm_zero);
-    draw_set_colour(rgb(0x7480a8));
+    draw_set_colour(_A.tint);
     draw_rectangle(_cx - 2, _cy - 2, _cx + _vw + 2, _cy + _vh + 2, false);
     gpu_set_blendmode(bm_normal);
 
     // ...then add the lights back
     gpu_set_blendmode(bm_add);
-    draw_set_alpha(0.16); draw_set_colour(rgb(0xffd9a0));          // classroom lights are still on
-    draw_rectangle(wx(-28), wy(-8), wx(-16), wy(8), false);
-    draw_set_alpha(1);
+    if (_A.lit) {
+        draw_set_alpha(0.16); draw_set_colour(rgb(0xffd9a0));          // the classroom lights are still on
+        draw_rectangle(wx(_A.room[0]), wy(_A.room[1]) - 2 * U, wx(_A.room[2]), wy(_A.room[3]), false);
+        draw_set_alpha(1);
+    }
     var _t = _G.teacher;
     draw_circle_colour(wx(_t.px), wy(_t.pz) - U * 0.6, 3.2 * U, rgb(0x2a2a22), c_black, false); // the teacher's torch
     var _pulse = 0.6 + sin(_G.time * 3) * 0.25;
@@ -113,14 +177,90 @@ function draw_world() {
         var _def = global.ENEMY_TYPES[$ _en.type];
         draw_circle_colour(wx(_en.x), wy(_en.z) - 1.2 * U * _en.scale, 1.3 * U * _en.scale, merge_colour(c_black, _def.eye, 0.22), c_black, false);
     }
+    // open doors glow faintly so they are easy to find
+    for (var _i = 0; _i < array_length(_A.doors); _i++) {
+        var _d = _A.doors[_i];
+        if (!_d.blocked) draw_circle_colour(wx(_d.x), wy(_d.z), 1.1 * U, rgb(0x3a3018), c_black, false);
+    }
     gpu_set_blendmode(bm_normal);
     gpu_set_tex_filter(true);
+}
+
+/// Campus building: rooftop 9-slice, facade modules along the south edge, doors.
+function draw_building(_b) {
+    var _x1 = wx(_b.x1), _x2 = wx(_b.x2), _y1 = wy(_b.z1), _y2 = wy(_b.z2);
+    var _fh = _b.fac_h * U, _ry2 = _y2 - _fh;
+    atl_nine(_b.roof, _x1, _y1, _x2, _ry2);
+    var _r = global.ATLAS[$ _b.fac];
+    atl_fill(_r[0], _r[1], _r[2], _r[3], _x1, _ry2, _x2, _y2);
+    for (var _i = 0; _i < array_length(_b.doors); _i++) {
+        var _d = _b.doors[_i];
+        switch (_d.side) {
+            case "s":
+                var _dr = global.ATLAS.fac_door, _dx = wx(_d.pos);
+                draw_sprite_part_ext(spr_atlas, 0, _dr[0] + 36, _dr[1], 40, 64, round(_dx - 20 * AS), _ry2, AS, AS, c_white, 1);
+                if (_d.blocked) {
+                    draw_set_colour(rgb(0x6a4a2a));
+                    draw_line_width(_dx - 0.8 * U, _y2 - 1.8 * U, _dx + 0.8 * U, _y2 - 0.6 * U, 8);
+                    draw_line_width(_dx - 0.8 * U, _y2 - 0.9 * U, _dx + 0.8 * U, _y2 - 1.6 * U, 8);
+                    draw_blocked_mark(_dx, _y2 - 1.2 * U);
+                }
+                break;
+            case "n":
+                if (_d.blocked) draw_blocked_mark(wx(_d.pos), _y1 + 10);
+                else { draw_set_colour(rgb(0x1a1410)); draw_rectangle(wx(_d.pos) - 0.8 * U, _y1, wx(_d.pos) + 0.8 * U, _y1 + 12, false); }
+                break;
+            case "w": case "e":
+                var _ex = _d.side == "w" ? _x1 : _x2, _dy = wy(_d.pos);
+                if (_d.blocked) draw_blocked_mark(_ex, _dy - 0.6 * U);
+                else {
+                    draw_set_colour(rgb(0x1a1410));
+                    draw_rectangle(_ex - 8, _dy - 1.6 * U, _ex + 8, _dy + 0.2 * U, false);
+                    draw_set_colour(rgb(0x8a6a2a));
+                    draw_rectangle(_ex - 9, _dy - 1.6 * U, _ex + 9, _dy - 1.6 * U + 5, false);
+                }
+                break;
+        }
+    }
 }
 
 function draw_box(_b) {
     var _x1 = wx(_b.x1), _x2 = wx(_b.x2), _y1 = wy(_b.z1), _y2 = wy(_b.z2);
     var _mx = (_x1 + _x2) / 2;
     switch (_b.kind) {
+        case "bld": draw_building(_b); break;
+        case "roofonly": atl_nine("roof", _x1, _y1, _x2, _y2); break;
+        case "ruin":
+            // a collapsed shell: broken floor, scorched rubble, the stump of the front wall
+            var _p = global.ATLAS.fl_tile;
+            atl_fill(_p[0], _p[1], 16, 16, _x1, _y1, _x2, _y2, rgb(0x8a847c));
+            draw_set_alpha(0.55); draw_set_colour(rgb(0x1a1612));
+            for (var _k = 0; _k < 7; _k++) {
+                var _hx = lerp(_x1, _x2, frac(_k * 0.618 + _b.x1 * 0.13)), _hy = lerp(_y1, _y2, frac(_k * 0.382 + _b.z1 * 0.21));
+                draw_ellipse(_hx - 0.9 * U, _hy - 0.5 * U, _hx + 0.9 * U, _hy + 0.5 * U, false);
+            }
+            draw_set_alpha(1);
+            var _fr = global.ATLAS.fac_win;
+            for (var _x = _x1; _x < _x2 - 1; _x += 112 * AS) {
+                var _w = min(112, (_x2 - _x) / AS) * 0.6;
+                draw_sprite_part_ext(spr_atlas, 0, _fr[0], _fr[1] + 32, _w, 32, _x, _y2 - 1.6 * U, AS, AS * 0.5, rgb(0x9a8a80), 1);
+            }
+            break;
+        case "lowwall":
+            draw_set_colour(rgb(0x8a4a3a)); draw_rectangle(_x1, _y1 - 0.5 * U, _x2, _y2, false);
+            draw_set_colour(rgb(0xc9b8a0)); draw_rectangle(_x1, _y1 - 0.5 * U, _x2, _y1 - 0.5 * U + 8, false);
+            break;
+        case "doorx":
+            // a boarded-up door in an interior wall
+            if (_b.side == "n") {
+                var _top = wy(_b.z2) - 0.3 * U - 2 * U;
+                draw_set_colour(rgb(0x3a2a1e)); draw_rectangle(_mx - 0.8 * U, _top + 0.3 * U, _mx + 0.8 * U, wy(_b.z2) - 0.3 * U, false);
+                draw_set_colour(rgb(0x8a6a42));
+                draw_line_width(_mx - 0.8 * U, _top + 0.6 * U, _mx + 0.8 * U, _top + 1.3 * U, 7);
+                draw_line_width(_mx - 0.8 * U, _top + 1.5 * U, _mx + 0.8 * U, _top + 0.9 * U, 7);
+                draw_blocked_mark(_mx, _top + 1.1 * U);
+            } else draw_blocked_mark(_mx, (_y1 + _y2) / 2 - 0.4 * U);
+            break;
         case "wall_n": case "wall":
             // LimeZu-style wall: white "ceiling" top with dark outline, wood panelling below.
             // Only the north wall shows its full face; the others show a thin edge.
@@ -146,8 +286,6 @@ function draw_box(_b) {
         case "desk":    atl_draw_bc(_b.art, _mx, _y2 + 0.2 * U); break;
         case "prop":    atl_draw_bc(_b.art, _mx, _y2 + 0.2 * U); break;
         case "table":   atl_draw_bc("workbench", _mx, _y2 + 0.3 * U); break;
-        case "school":  atl_draw_bc("school", _mx, _y2 + 2 * U); break;
-        case "tower":   atl_draw_bc("tower", _mx, _y2 + 0.4 * U); break;
         case "car1": case "car2": case "container":
             atl_draw_bc(_b.kind, _mx, _y2 + 0.5 * U); break;
     }
@@ -311,7 +449,7 @@ function draw_hud() {
     draw_txt(_x1 + 12, 42, _invs, COL_TEXT, fnt_small, fa_left, _x2 - _x1 - 24);
 
     var _oy = 14 + _ih + 8;
-    var _obj = _G.fence_cleared ? "The east quad is open." : "A fence blocks the east quad. Everyone must be able to clear it.";
+    var _obj = _G.fence_cleared ? "The east side of campus is open." : "A fence cuts off the Library and Cafeteria. Everyone must be able to clear it.";
     var _body = "Scavenge the campus and piece together what happened.\n" + _obj;
     var _oh = 34 + txt_h(_body, fnt_small, _x2 - _x1 - 24);
     draw_panel(_x1, _oy, _x2, _oy + _oh, COL_PANEL, COL_LINE, 0.9);

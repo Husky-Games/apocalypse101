@@ -2,7 +2,7 @@
   "$GMSprite":"",
   "%Name":"spr_atlas",
   "bboxMode":0,
-  "bbox_bottom":511,
+  "bbox_bottom":1023,
   "bbox_left":0,
   "bbox_right":1023,
   "bbox_top":0,
@@ -16,7 +16,7 @@
   ],
   "gridX":0,
   "gridY":0,
-  "height":512,
+  "height":1024,
   "HTile":false,
   "layers":[
     {"$GMImageLayer":"","%Name":"093ef00754b64996addb8c95e51da1f3","blendMode":0,"displayName":"default","isLocked":false,"name":"093ef00754b64996addb8c95e51da1f3","opacity":100.0,"resourceType":"GMImageLayer","resourceVersion":"2.0","visible":true,},

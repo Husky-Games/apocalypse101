@@ -40,7 +40,8 @@ $EXT = "modernexteriors-win.zip"
 $INT = "moderninteriors-win.zip"
 $FB  = "Fantasy Battlers - Complete.zip"
 $exS = "Modern_Exteriors_16x16/ME_Theme_Sorter_16x16"
-$cls = "1_Interiors/16x16/Theme_Sorter_Singles/5_Classroom_and_Library_Singles/Classroom_and_Library_Singles"
+$IS  = "1_Interiors/16x16/Theme_Sorter_Singles"
+$cls = "$IS/5_Classroom_and_Library_Singles/Classroom_and_Library_Singles"
 
 # name, zip, entry path, rect ("" = whole image)
 $Parts = @(
@@ -79,6 +80,66 @@ $Parts = @(
   @("cork",       $INT, "${cls}_33.png", ""),
   @("globe",      $INT, "${cls}_34.png", ""),
   @("locker",     $INT, "${cls}_40.png", ""),
+  # --- campus: modular buildings (rooftop 9-slice + one-storey facades, 112 px = 7 units wide)
+  @("roof",       $EXT, "$exS/5_Floor_Modular_Buildings_16x16.png", "16,256,112,96"),
+  @("roof2",      $EXT, "$exS/5_Floor_Modular_Buildings_16x16.png", "160,256,112,96"),
+  @("fac_win",    $EXT, "$exS/5_Floor_Modular_Buildings_16x16.png", "16,480,112,64"),
+  @("fac_win2",   $EXT, "$exS/5_Floor_Modular_Buildings_16x16.png", "160,480,112,64"),
+  @("fac_door",   $EXT, "$exS/5_Floor_Modular_Buildings_16x16.png", "16,640,112,64"),
+  @("fac_arch",   $EXT, "$exS/5_Floor_Modular_Buildings_16x16.png", "160,640,112,64"),
+  @("court",      $EXT, "$exS/13_School_Singles_16x16/ME_Singles_School_16x16_Basketball_Court_1.png", ""),
+  @("bleachers",  $EXT, "$exS/13_School_16x16.png", "64,967,64,41"),
+  @("floodlight", $EXT, "$exS/13_School_16x16.png", "36,933,23,75"),
+  @("flag",       $EXT, "$exS/13_School_Singles_16x16/ME_Singles_School_16x16_Flag_1.png", ""),
+  # --- interior floors (48x32 swatches from the Room Builder)
+  @("fl_carpet",  $INT, "1_Interiors/16x16/Room_Builder_16x16.png", "672,400,48,32"),
+  @("fl_parquet", $INT, "1_Interiors/16x16/Room_Builder_16x16.png", "672,336,48,32"),
+  @("fl_stage",   $INT, "1_Interiors/16x16/Room_Builder_16x16.png", "736,560,48,32"),
+  @("fl_checker", $INT, "1_Interiors/16x16/Room_Builder_16x16.png", "736,208,48,32"),
+  @("fl_tile",    $INT, "1_Interiors/16x16/Room_Builder_16x16.png", "672,656,48,32"),
+  @("fl_red",     $INT, "1_Interiors/16x16/Room_Builder_16x16.png", "672,368,48,32"),
+  # --- interior props
+  @("whiteboard", $INT, "${cls}_39.png", ""),
+  @("bookcase1",  $INT, "${cls}_43.png", ""),
+  @("bookcase2",  $INT, "${cls}_44.png", ""),
+  @("libdesk",    $INT, "${cls}_49.png", ""),
+  @("libdesk2",   $INT, "${cls}_52.png", ""),
+  @("computer",   $INT, "${cls}_54.png", ""),
+  @("shelf1",     $INT, "${cls}_57.png", ""),
+  @("shelf2",     $INT, "${cls}_58.png", ""),
+  @("shelf3",     $INT, "${cls}_60.png", ""),
+  @("shelf4",     $INT, "${cls}_71.png", ""),
+  @("shelf5",     $INT, "${cls}_74.png", ""),
+  @("drums",      $INT, "$IS/6_Music_and_Sport/Music_and_Sport_Singles_37.png", ""),
+  @("guitar",     $INT, "$IS/6_Music_and_Sport/Music_and_Sport_Singles_46.png", ""),
+  @("micstand",   $INT, "$IS/6_Music_and_Sport/Music_and_Sport_Singles_75.png", ""),
+  @("bball",      $INT, "$IS/6_Music_and_Sport/Music_and_Sport_Singles_79.png", ""),
+  @("trophy",     $INT, "$IS/6_Music_and_Sport/Music_and_Sport_Singles_151.png", ""),
+  @("trophies",   $INT, "$IS/6_Music_and_Sport/Music_and_Sport_Singles_157.png", ""),
+  @("cup",        $INT, "$IS/6_Music_and_Sport/Music_and_Sport_Singles_145.png", ""),
+  @("medals",     $INT, "$IS/6_Music_and_Sport/Music_and_Sport_Singles_109.png", ""),
+  @("bag1",       $INT, "$IS/8_Gym_Singles/Gym_Singles_181.png", ""),
+  @("bag2",       $INT, "$IS/8_Gym_Singles/Gym_Singles_182.png", ""),
+  @("mat_red",    $INT, "$IS/8_Gym_Singles/Gym_Singles_36.png", ""),
+  @("mat_blue",   $INT, "$IS/8_Gym_Singles/Gym_Singles_54.png", ""),
+  @("barbell",    $INT, "$IS/8_Gym_Singles/Gym_Singles_89.png", ""),
+  @("kettlebell", $INT, "$IS/8_Gym_Singles/Gym_Singles_107.png", ""),
+  @("seat",       $INT, "$IS/13_Conference_Hall_Singles/Conference_Hall_Singles_37.png", ""),
+  @("podium",     $INT, "$IS/13_Conference_Hall_Singles/Conference_Hall_Singles_40.png", ""),
+  @("rug_red",    $INT, "$IS/13_Conference_Hall_Singles/Conference_Hall_Singles_60.png", ""),
+  @("spotlight",  $INT, "$IS/23_Television_and_Film_Studio_SIngles/Television_and_FIlm_Studio_Singles_8.png", ""),
+  @("stove",      $INT, "1_Interiors/16x16/Theme_Sorter/12_Kitchen_16x16.png", "128,178,32,28"),
+  @("lunchtable", $INT, "1_Interiors/16x16/Theme_Sorter/12_Kitchen_16x16.png", "57,336,30,38"),
+  @("woodtable",  $INT, "1_Interiors/16x16/Theme_Sorter/12_Kitchen_16x16.png", "57,240,30,42"),
+  @("counter",    $INT, "1_Interiors/16x16/Theme_Sorter/12_Kitchen_16x16.png", "193,306,46,14"),
+  @("fridge",     $INT, "1_Interiors/16x16/Theme_Sorter/12_Kitchen_16x16.png", "176,602,26,38"),
+  @("cabinet",    $INT, "1_Interiors/16x16/Theme_Sorter/19_Hospital_16x16.png", "35,441,27,39"),
+  @("cabinet2",   $INT, "1_Interiors/16x16/Theme_Sorter/19_Hospital_16x16.png", "99,441,27,39"),
+  @("skeleton",   $INT, "1_Interiors/16x16/Theme_Sorter/19_Hospital_16x16.png", "3,556,11,26"),
+  @("scanner",    $INT, "1_Interiors/16x16/Theme_Sorter/19_Hospital_16x16.png", "49,604,30,31"),
+  @("vending1",   $INT, "1_Interiors/16x16/Theme_Sorter/19_Hospital_16x16.png", "36,681,23,33"),
+  @("vending2",   $INT, "1_Interiors/16x16/Theme_Sorter/19_Hospital_16x16.png", "101,681,21,33"),
+  @("chemshelf",  $INT, "1_Interiors/16x16/Theme_Sorter/19_Hospital_16x16.png", "1,711,30,41"),
   # Fantasy Battlers (front-facing combat enemies)
   @("bt_shade",   $FB, "Fantasy Battlers - Complete/Original size/14.png", ""),
   @("bt_hollow",  $FB, "Fantasy Battlers - Complete/Original size/17.png", "")
@@ -160,7 +221,8 @@ try {
     $x += $bw + $pad; $shelf = [Math]::Max($shelf, $bh)
   }
   $H = 1; while ($H -lt $y + $shelf + $pad) { $H *= 2 }
-  if ($W -ne 1024 -or $H -ne 512) { Write-Warning "Atlas is ${W}x$H; update spr_atlas.yy width/height to match." }
+  $H = [Math]::Max($H, 1024)
+  if ($W -ne 1024 -or $H -ne 1024) { Write-Warning "Atlas is ${W}x$H; update spr_atlas.yy width/height to match." }
   $atlas = New-Object System.Drawing.Bitmap $W, $H, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
   $g = [System.Drawing.Graphics]::FromImage($atlas)
   $g.Clear([System.Drawing.Color]::FromArgb(0, 0, 0, 0))

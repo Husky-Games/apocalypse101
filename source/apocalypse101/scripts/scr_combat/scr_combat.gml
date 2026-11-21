@@ -364,7 +364,7 @@ function combat_finish() {
         for (var _i = 0; _i < array_length(_all); _i++) _all[_i].ap = min(_all[_i].maxAp, _all[_i].ap + AP_WIN);
     } else {
         for (var _i = 0; _i < array_length(_all); _i++) { _all[_i].hp = ceil(_all[_i].maxHp / 2); _all[_i].ap = ceil(_all[_i].maxAp / 2); }
-        _G.teacher.px = -20; _G.teacher.pz = 0;
+        area_enter("main", MAIN_SPAWN_X, MAIN_SPAWN_Z, 270);
         party_place();
         _c.group.x = _c.group.hx; _c.group.z = _c.group.hz;
         _c.group.tx = _c.group.hx; _c.group.tz = _c.group.hz;
