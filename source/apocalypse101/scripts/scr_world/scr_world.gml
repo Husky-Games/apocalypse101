@@ -6,6 +6,7 @@
 function game_init() {
     data_init();
     atlas_init();
+    feedback_init();
     global.G = {
         mode: "ui",            // ui | explore | combat
         overlay: "",           // roster | craft | journal | finish
@@ -508,6 +509,7 @@ function game_step() {
     _G.time += _G.dt;
     _G.pad = pad_find();
     display_update();
+    if (feedback_step()) return;   // N: playtest note (pauses the game)
     if (_G.toast_t > 0) _G.toast_t -= _G.dt;
 
     if (_G.finish_pending > 0) {

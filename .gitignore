@@ -1,3 +1,6 @@
 
 # Purchased/downloaded asset packs (licensed; not redistributable)
 content/downloaded/
+
+# Playtest notes written by the game (N key)
+build/feedback/

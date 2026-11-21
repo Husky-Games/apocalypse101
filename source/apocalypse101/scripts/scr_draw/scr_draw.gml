@@ -520,7 +520,7 @@ function draw_hud() {
 
     // Controls help
     draw_txt(GUI_W / 2, GUI_H - 30,
-        "WASD / Arrows / Left stick  move  ·  E / Space / A  interact  ·  H / X  heal  ·  C / Y  craft anywhere  ·  J / Start  journal  ·  F11  fullscreen",
+        "WASD / Arrows / Left stick  move  ·  E / Space / A  interact  ·  H / X  heal  ·  C / Y  craft anywhere  ·  J / Start  journal  ·  N  feedback  ·  F11  fullscreen",
         COL_MUTED, fnt_small, fa_center);
 }
 
