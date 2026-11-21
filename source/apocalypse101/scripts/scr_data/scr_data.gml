@@ -14,13 +14,13 @@ function data_init() {
         strike:           { name: "Attack",           type: "attack", target: "enemy",   base: 0,  minigame: "",       cd: 0, status: "",        turns: 0, desc: "A basic hit." },
         pop_quiz:         { name: "Pop Quiz",         type: "buff",   target: "party",   base: 30, minigame: "memory", cd: 2, status: "",        turns: 3, desc: "Party ATK +10% per correct answer (max 30%)." },
         homerun:          { name: "Homerun",          type: "attack", target: "enemy",   base: 20, minigame: "timing", cd: 2, status: "",        turns: 0, desc: "20 base dmg. Time the swing; perfect = crit." },
-        freeze_frame:     { name: "Freeze Frame",     type: "status", target: "enemy",   base: 0,  minigame: "timing", cd: 2, status: "stun",    turns: 2, desc: "Stun one enemy 2 turns (3 on a sharp shot)." },
-        soups_on:         { name: "Soup's On",        type: "heal",   target: "party",   base: 30, minigame: "mash",   cd: 2, status: "",        turns: 0, desc: "Heal all allies up to 30% max HP. Stir!" },
+        freeze_frame:     { name: "Freeze Frame",     type: "status", target: "enemy",   base: 0,  minigame: "focus",  cd: 2, status: "stun",    turns: 2, desc: "Stun one enemy 2 turns (3 on a sharp shot)." },
+        soups_on:         { name: "Soup's On",        type: "heal",   target: "party",   base: 30, minigame: "stir",   cd: 2, status: "",        turns: 0, desc: "Heal all allies up to 30% max HP. Stir!" },
         death_blade:      { name: "Death Blade",      type: "attack", target: "enemy",   base: 40, minigame: "timing", cd: 3, status: "",        turns: 0, desc: "40 base dmg. Time the strike; perfect = crit." },
-        encore:           { name: "Encore",           type: "attack", target: "enemies", base: 10, minigame: "timing", cd: 3, status: "",        turns: 0, desc: "10 base dmg to all enemies. Perfect = crit." },
+        encore:           { name: "Encore",           type: "attack", target: "enemies", base: 10, minigame: "chords", cd: 3, status: "",        turns: 0, desc: "10 base dmg to all enemies. Perfect = crit." },
         chemical_burn:    { name: "Chemical Burn",    type: "attack", target: "enemies", base: 15, minigame: "mash",   cd: 4, status: "poison",  turns: 3, desc: "15 dmg to all enemies + poison (3 turns)." },
-        creative_license: { name: "Creative License", type: "attack", target: "enemy",   base: 15, minigame: "memory", cd: 4, status: "confuse", turns: 3, desc: "15 dmg + confuse one enemy (3 turns)." },
-        invasive_surgery: { name: "Invasive Surgery", type: "heal",   target: "party",   base: 40, minigame: "timing", cd: 5, status: "",        turns: 0, desc: "Heal all allies up to 40% max HP." },
+        creative_license: { name: "Creative License", type: "attack", target: "enemy",   base: 15, minigame: "trace",  cd: 4, status: "confuse", turns: 3, desc: "15 dmg + confuse one enemy (3 turns)." },
+        invasive_surgery: { name: "Invasive Surgery", type: "heal",   target: "party",   base: 40, minigame: "operation", cd: 5, status: "",        turns: 0, desc: "Heal all allies up to 40%. Operate cleanly!" },
     };
 
     // role: [Starter|Advanced] DPS / Controller / Healer

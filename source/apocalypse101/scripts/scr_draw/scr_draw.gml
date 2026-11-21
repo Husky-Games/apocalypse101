@@ -566,16 +566,18 @@ function draw_combat_ui() {
 function draw_mini() {
     var _m = global.G.mini;
     var _cx = (MINI_X1 + MINI_X2) / 2;
-    draw_panel(MINI_X1, MINI_Y1, MINI_X2, MINI_Y2, COL_PANEL, COL_ACCENT, 0.95);
+    draw_panel(MINI_X1, MINI_Y1, MINI_X2, MINI_Y2, COL_PANEL, _m.flash > 0 ? COL_WARN : COL_ACCENT, 0.95);
     draw_txt(_cx, MINI_Y1 + 14, _m.label, COL_ACCENT, fnt_title, fa_center);
     if (_m.done) {
-        draw_txt(_cx, MINI_Y1 + 100, _m.text, COL_TEXT, fnt_title, fa_center);
+        draw_txt(_cx, (MINI_Y1 + MINI_Y2) / 2 - 20, _m.text, COL_TEXT, fnt_title, fa_center);
         return;
     }
+    var _timer = variable_struct_exists(_m, "left") && _m.type != "timing" && _m.type != "memory" && _m.type != "chords";
+    if (_timer) draw_txt(MINI_X2 - 24, MINI_Y1 + 22, string_format(max(0, _m.left), 1, 1) + "s", COL_MUTED, fnt_ui, fa_right);
     switch (_m.type) {
         case "timing":
             draw_txt(_cx, MINI_Y1 + 58, "Press Space / click / A when the marker is in the green", COL_MUTED, fnt_ui, fa_center);
-            var _bx1 = MINI_X1 + 40, _bx2 = MINI_X2 - 40, _by = MINI_Y1 + 120;
+            var _bx1 = MINI_X1 + 60, _bx2 = MINI_X2 - 60, _by = (MINI_Y1 + MINI_Y2) / 2;
             draw_bar(_bx1, _by, _bx2 - _bx1, 30, 0, c_white, rgb(0x2a1418));
             var _bw = _bx2 - _bx1;
             // "Good" (q >= 0.5) when |pos-0.5| < 0.287; "Perfect" in the green when < 0.06
@@ -584,12 +586,13 @@ function draw_mini() {
             var _mk = _bx1 + _bw * _m.pos;
             draw_set_colour(c_white); draw_rectangle(_mk - 3, _by - 8, _mk + 3, _by + 38, false);
             break;
+
         case "mash":
-            draw_txt(_cx, MINI_Y1 + 58, "Mash Space / click / A!", COL_MUTED, fnt_ui, fa_center);
-            draw_txt(_cx, MINI_Y1 + 96, string(_m.count), COL_TEXT, fnt_title, fa_center);
-            draw_bar(MINI_X1 + 80, MINI_Y1 + 150, MINI_X2 - MINI_X1 - 160, 12, _m.count / 14, COL_ACCENT);
-            draw_txt(_cx, MINI_Y1 + 172, string_format(max(0, _m.left), 1, 1) + "s", COL_MUTED, fnt_ui, fa_center);
+            draw_txt(_cx, MINI_Y1 + 58, "Mash Space / click / A to heat the flame!", COL_MUTED, fnt_ui, fa_center);
+            draw_txt(_cx, MINI_Y1 + 130, string(_m.count), COL_TEXT, fnt_title, fa_center);
+            draw_bar(MINI_X1 + 100, MINI_Y1 + 200, MINI_X2 - MINI_X1 - 200, 14, _m.count / 14, COL_ACCENT);
             break;
+
         case "memory":
             var _show = _m.phase == "show";
             draw_txt(_cx, MINI_Y1 + 58, _show ? "Memorize the sequence…" : "Enter it with arrows / WASD / d-pad", COL_MUTED, fnt_ui, fa_center);
@@ -598,7 +601,7 @@ function draw_mini() {
                 if (_show) _s += dir_glyph(_m.seq[_i]) + "  ";
                 else _s += (_i < array_length(_m.input) ? dir_glyph(_m.input[_i]) : "?") + "  ";
             }
-            draw_txt(_cx, MINI_Y1 + 92, _s, COL_TEXT, fnt_title, fa_center);
+            draw_txt(_cx, MINI_Y1 + 130, _s, COL_TEXT, fnt_title, fa_center);
             if (!_show) {
                 var _order = ["L", "U", "D", "R"];
                 for (var _i = 0; _i < 4; _i++) {
@@ -609,5 +612,141 @@ function draw_mini() {
                 }
             }
             break;
+
+        case "focus": draw_mini_focus(_m, _cx); break;
+        case "stir": draw_mini_stir(_m, _cx); break;
+        case "chords": draw_mini_chords(_m, _cx); break;
+        case "trace": case "operation": draw_mini_path(_m, _cx); break;
+    }
+}
+
+/// Freeze Frame: a viewfinder showing the target, pixelated by how far off the focus is.
+function draw_mini_focus(_m, _cx) {
+    draw_txt(_cx, MINI_Y1 + 58, "Turn the lens with ↑/↓ (W/S, stick, wheel). Space / A to snap!", COL_MUTED, fnt_ui, fa_center);
+    var _tgt = global.G.c.pending_target;
+    var _art = is_struct(_tgt) && _tgt.name == "Hollow" ? "bt_hollow" : "bt_shade";
+    var _tint = _art == "bt_hollow" ? rgb(0x9ec4bc) : rgb(0xa890d0);
+    var _r = global.ATLAS[$ _art];
+    var _box = 230, _bx = _cx - _box / 2, _by = MINI_AY1;
+    var _err = abs(_m.focus - _m.target);
+    var _block = 1 + floor(min(_err, 0.6) * 55);      // GUI px per "pixel" of blur
+    var _sw = ceil(_box / _block);
+    var _surf = surface_create(max(1, _sw), max(1, _sw));
+    surface_set_target(_surf);
+    draw_clear_alpha(rgb(0x14161c), 1);
+    var _s = (_box * 0.85 / _block) / _r[3];
+    gpu_set_tex_filter(false);
+    draw_sprite_part_ext(spr_atlas, 0, _r[0], _r[1], _r[2], _r[3], _sw / 2 - _r[2] * _s / 2, _sw - _r[3] * _s - 2 / _block, _s, _s, _tint, 1);
+    surface_reset_target();
+    draw_surface_part_ext(_surf, 0, 0, _box / _block, _box / _block, _bx, _by, _block, _block, c_white, 1);
+    gpu_set_tex_filter(true);
+    surface_free(_surf);
+    // viewfinder frame
+    draw_set_colour(c_white);
+    var _c = 22;
+    draw_line_width(_bx, _by, _bx + _c, _by, 3); draw_line_width(_bx, _by, _bx, _by + _c, 3);
+    draw_line_width(_bx + _box, _by, _bx + _box - _c, _by, 3); draw_line_width(_bx + _box, _by, _bx + _box, _by + _c, 3);
+    draw_line_width(_bx, _by + _box, _bx + _c, _by + _box, 3); draw_line_width(_bx, _by + _box, _bx, _by + _box - _c, 3);
+    draw_line_width(_bx + _box, _by + _box, _bx + _box - _c, _by + _box, 3); draw_line_width(_bx + _box, _by + _box, _bx + _box, _by + _box - _c, 3);
+    // lens ring
+    var _rx = _bx + _box + 60, _ry1 = _by, _ry2 = _by + _box;
+    draw_bar(_rx - 6, _ry1, 12, _ry2 - _ry1, 0, c_white, COL_PANEL2);
+    var _ky = lerp(_ry2, _ry1, _m.focus);
+    draw_set_colour(COL_ACCENT); draw_rectangle(_rx - 16, _ky - 4, _rx + 16, _ky + 4, false);
+    draw_txt(_rx, _ry2 + 8, "focus", COL_MUTED, fnt_small, fa_center);
+}
+
+/// Soup's On: a pot to stir round with W A S D.
+function draw_mini_stir(_m, _cx) {
+    draw_txt(_cx, MINI_Y1 + 58, "Stir round the pot: W → D → S → A (arrows / d-pad work too)", COL_MUTED, fnt_ui, fa_center);
+    var _py = (MINI_AY1 + MINI_AY2) / 2 + 4, _pr = 70;
+    draw_set_colour(rgb(0x3a3d4a)); draw_circle(_cx, _py, _pr + 12, false);       // pot rim
+    draw_set_colour(rgb(0xc8782c)); draw_circle(_cx, _py, _pr, false);            // soup
+    draw_set_colour(rgb(0xe8a040));
+    for (var _i = 0; _i < 6; _i++) {                                              // swirl
+        var _ang = _m.count * 30 + _i * 60;
+        draw_circle(_cx + lengthdir_x(_pr * 0.55, _ang), _py + lengthdir_y(_pr * 0.55, _ang), 9, false);
+    }
+    var _sx = _cx + lengthdir_x(_pr * 0.6, _m.angle), _sy = _py + lengthdir_y(_pr * 0.6, _m.angle);
+    draw_set_colour(rgb(0x8a5a2a)); draw_line_width(_sx, _sy, _sx + 34, _sy - 84, 8);   // spoon
+    draw_set_colour(rgb(0xb07838)); draw_circle(_sx, _sy, 12, false);
+    var _keys = ["W", "D", "S", "A"];
+    for (var _i = 0; _i < 4; _i++) {
+        var _kx = _cx + lengthdir_x(_pr + 40, 90 - _i * 90), _ky = _py + lengthdir_y(_pr + 40, 90 - _i * 90);
+        draw_txt(_kx, _ky - 12, _keys[_i], _m.last == _i ? COL_ACCENT : COL_MUTED, fnt_ui, fa_center);
+    }
+    draw_bar(MINI_X1 + 100, MINI_Y2 - 36, MINI_X2 - MINI_X1 - 200, 12, _m.count / _m.goal, COL_GOOD);
+}
+
+/// Encore: four chords slide toward the strike line.
+function draw_mini_chords(_m, _cx) {
+    draw_txt(_cx, MINI_Y1 + 58, "Space / click / A as each chord crosses the line", COL_MUTED, fnt_ui, fa_center);
+    var _x1 = MINI_AX1 + 20, _x2 = MINI_AX2 - 20, _ly = (MINI_AY1 + MINI_AY2) / 2;
+    var _hitx = _x1 + 110, _speed = 260;   // px per second
+    draw_set_colour(COL_LINE);
+    for (var _s = -2; _s <= 2; _s++) draw_line_width(_x1, _ly + _s * 18, _x2, _ly + _s * 18, 2);   // strings
+    draw_set_colour(COL_GOOD); draw_line_width(_hitx, _ly - 60, _hitx, _ly + 60, 4);
+    for (var _i = 0; _i < 4; _i++) {
+        var _nx = _hitx + (_m.times[_i] - _m.t) * _speed;
+        var _h = _m.hits[_i];
+        if (_h < 0) {
+            if (_nx < _x2 + 20 && _nx > _x1 - 20) {
+                draw_set_colour(rgb(0xffd060)); draw_circle(_nx, _ly, 20, false);
+                draw_set_colour(rgb(0x5a3a10)); draw_circle(_nx, _ly, 20, true);
+                draw_line_width(_nx + 6, _ly - 4, _nx + 6, _ly - 34, 4); draw_circle(_nx, _ly - 2, 7, false);
+            }
+        }
+        var _jc = _m.judge[_i] == "Perfect" ? COL_GOOD : (_m.judge[_i] == "Good" ? COL_ACCENT : COL_WARN);
+        draw_set_colour(_h < 0 ? COL_PANEL2 : _jc);
+        draw_circle(_cx - 90 + _i * 60, MINI_Y2 - 34, 12, false);
+        if (_m.judge[_i] != "") draw_txt(_cx - 90 + _i * 60, MINI_Y2 - 70, _m.judge[_i], _jc, fnt_small, fa_center);
+    }
+}
+
+/// Creative License (trace) and Invasive Surgery (operation): a path to follow with a cursor.
+function draw_mini_path(_m, _cx) {
+    var _op = _m.type == "operation";
+    draw_txt(_cx, MINI_Y1 + 58, _op ? "Guide the tweezers to the heart: arrows / WASD / stick, or drag. Don't touch the edges!"
+                                    : "Trace the stroke dot to dot: arrows / WASD / stick, or drag with the mouse",
+             COL_MUTED, fnt_ui, fa_center, MINI_X2 - MINI_X1 - 60);
+    var _p = _m.path, _n = array_length(_p);
+    // canvas / patient
+    draw_set_colour(_op ? rgb(0xe8b898) : rgb(0xf4eedc));
+    draw_roundrect_ext(MINI_AX1, MINI_AY1, MINI_AX2, MINI_AY2, 16, 16, false);
+    if (_op) {
+        // the channel: dark edges, cavity inside
+        draw_set_colour(rgb(0x5a1a1a));
+        for (var _i = 0; _i < _n - 1; _i++) draw_line_width(_p[_i][0], _p[_i][1], _p[_i + 1][0], _p[_i + 1][1], _m.halfw * 2 + 8);
+        for (var _i = 0; _i < _n; _i++) draw_circle(_p[_i][0], _p[_i][1], _m.halfw + 4, false);
+        draw_set_colour(rgb(0xb04848));
+        for (var _i = 0; _i < _n - 1; _i++) draw_line_width(_p[_i][0], _p[_i][1], _p[_i + 1][0], _p[_i + 1][1], _m.halfw * 2);
+        for (var _i = 0; _i < _n; _i++) draw_circle(_p[_i][0], _p[_i][1], _m.halfw, false);
+        var _e = _p[_n - 1];
+        draw_set_colour(rgb(0xff3050)); draw_circle(_e[0] - 6, _e[1] - 4, 9, false); draw_circle(_e[0] + 6, _e[1] - 4, 9, false);
+        draw_triangle(_e[0] - 15, _e[1], _e[0] + 15, _e[1], _e[0], _e[1] + 16, false);
+        if (_m.flash > 0) { draw_set_alpha(_m.flash); draw_set_colour(c_red); draw_roundrect_ext(MINI_AX1, MINI_AY1, MINI_AX2, MINI_AY2, 16, 16, false); draw_set_alpha(1); }
+        // tweezers
+        draw_set_colour(rgb(0xc8ccd8)); draw_line_width(_m.cx, _m.cy, _m.cx + 26, _m.cy - 46, 5); draw_line_width(_m.cx + 4, _m.cy, _m.cx + 34, _m.cy - 42, 5);
+        draw_set_colour(c_white); draw_circle(_m.cx, _m.cy, 5, false);
+        var _st = $"Slips: {_m.touches}";
+        draw_txt(MINI_X1 + 24, MINI_Y1 + 22, _st, _m.touches > 0 ? COL_WARN : COL_MUTED, fnt_ui);
+    } else {
+        // faint guide stroke, then the painted part
+        draw_set_alpha(0.35); draw_set_colour(rgb(0xd04870));
+        for (var _i = 0; _i < _n - 1; _i++) draw_line_width(_p[_i][0], _p[_i][1], _p[_i + 1][0], _p[_i + 1][1], 22);
+        for (var _i = 1; _i < _n - 1; _i++) draw_circle(_p[_i][0], _p[_i][1], 10, false);
+        draw_set_alpha(1);
+        draw_set_colour(rgb(0xd04870));
+        for (var _i = 0; _i < _m.next - 1; _i++) draw_line_width(_p[_i][0], _p[_i][1], _p[_i + 1][0], _p[_i + 1][1], 22);
+        for (var _i = 0; _i < _m.next; _i++) draw_circle(_p[_i][0], _p[_i][1], 10, false);
+        for (var _i = 0; _i < _n; _i++) {
+            draw_set_colour(_i < _m.next ? rgb(0xd04870) : rgb(0x6a2a40));
+            draw_circle(_p[_i][0], _p[_i][1], _i == _m.next ? 10 : 7, _i >= _m.next);
+        }
+        if (_m.flash > 0) { draw_set_alpha(_m.flash * 2); draw_set_colour(COL_WARN); draw_roundrect_ext(MINI_AX1, MINI_AY1, MINI_AX2, MINI_AY2, 16, 16, true); draw_set_alpha(1); }
+        // brush
+        draw_set_colour(rgb(0x8a5a2a)); draw_line_width(_m.cx, _m.cy, _m.cx + 22, _m.cy - 40, 6);
+        draw_set_colour(rgb(0xd04870)); draw_circle(_m.cx, _m.cy, 9, false);
+        draw_txt(MINI_X1 + 24, MINI_Y1 + 22, $"Smudges: {_m.smudges}", _m.smudges > 0 ? COL_WARN : COL_MUTED, fnt_ui);
     }
 }
