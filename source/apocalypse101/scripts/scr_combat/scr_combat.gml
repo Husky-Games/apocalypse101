@@ -110,8 +110,8 @@ function combat_action_menu() {
     if (inv_count("energy") > 0) _has_items = true;
     var _opts = [{ label: "Attack", value: "strike", sub: "", disabled: false, back: false }];
     for (var _i = 0; _i < array_length(_m.skills); _i++) {
-        var _id = _m.skills[_i], _sk = global.SKILLS[$ _id], _cd = _m.cd[$ _id] ?? 0;
-        array_push(_opts, { label: _sk.name, value: _id, sub: _cd > 0 ? $"Recharging ({_cd})" : _sk.desc, disabled: _cd > 0, back: false });
+        var _id = _m.skills[_i], _sk = global.SKILLS[$ _id], _short = _m.ap < _sk.ap;
+        array_push(_opts, { label: $"{_sk.name}  ({_sk.ap} AP)", value: _id, sub: _short ? $"Not enough AP ({_m.ap}/{_sk.ap})" : _sk.desc, disabled: _short, back: false });
     }
     array_push(_opts, { label: "Item", value: "item", sub: "", disabled: !_has_items, back: false });
     array_push(_opts, { label: "Defend", value: "defend", sub: "Block the next enemy hit.", disabled: false, back: false });
@@ -248,7 +248,7 @@ function combat_resolve_skill(_q) {
             } else _c.log = "Nobody remembered the answers. No boost.";
             break;
     }
-    if (_sk.cd > 0) _m.cd[$ _id] = _sk.cd;
+    _m.ap = max(0, _m.ap - _sk.ap);
     combat_wait(0.65 + _extra, combat_end_turn);
 }
 
@@ -317,8 +317,7 @@ function combat_round_end() {
     var _all = everyone();
     for (var _i = 0; _i < array_length(_all); _i++) {
         var _m = _all[_i];
-        var _ks = variable_struct_get_names(_m.cd);
-        for (var _k = 0; _k < array_length(_ks); _k++) variable_struct_set(_m.cd, _ks[_k], max(0, variable_struct_get(_m.cd, _ks[_k]) - 1));
+        if (_m.hp > 0) _m.ap = min(_m.maxAp, _m.ap + AP_REGEN);
         _m.defending = false;
         if (is_struct(_m.buff)) { _m.buff.turns--; if (_m.buff.turns <= 0) _m.buff = undefined; }
     }
@@ -362,14 +361,15 @@ function combat_finish() {
     var _all = everyone();
     if (_c.result == "win") {
         arr_remove(_G.enemies, _c.group);
+        for (var _i = 0; _i < array_length(_all); _i++) _all[_i].ap = min(_all[_i].maxAp, _all[_i].ap + AP_WIN);
     } else {
-        for (var _i = 0; _i < array_length(_all); _i++) _all[_i].hp = ceil(_all[_i].maxHp / 2);
+        for (var _i = 0; _i < array_length(_all); _i++) { _all[_i].hp = ceil(_all[_i].maxHp / 2); _all[_i].ap = ceil(_all[_i].maxAp / 2); }
         _G.teacher.px = -20; _G.teacher.pz = 0;
         party_place();
         _c.group.x = _c.group.hx; _c.group.z = _c.group.hz;
         _c.group.tx = _c.group.hx; _c.group.tz = _c.group.hz;
     }
-    for (var _i = 0; _i < array_length(_all); _i++) { _all[_i].buff = undefined; _all[_i].defending = false; _all[_i].cd = {}; }
+    for (var _i = 0; _i < array_length(_all); _i++) { _all[_i].buff = undefined; _all[_i].defending = false; }
     _G.c = undefined;
     _G.btns = [];
     _G.mode = "explore";

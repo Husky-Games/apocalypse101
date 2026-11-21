@@ -1,26 +1,30 @@
 // Game content. Characters, stats and skills follow content/characters.md; tweak balance here.
 //
 // Stats (HP/ATK/DEF) use characters.md's scale. Damage: raw * 50 / (50 + DEF), minimum 1.
-// characters.md mentions PP/AP move costs; until a PP system exists, costs map to cooldowns:
-//   average = 2 rounds, more = 3, significantly more = 4, most = 5.
+// AP (characters.md "PP/AP"): every character has an AP pool; Attack and Defend are free.
+//   Skill costs: average = 3, more = 4, significantly more = 5, most = 6.
+//   Pool AP_BASE (+1 per level). Regain AP_REGEN per round in combat, AP_WIN after a win,
+//   and everything on Rest in the classroom. AP carries over between fights.
+#macro AP_BASE  10
+#macro AP_REGEN 2
+#macro AP_WIN   3
 
 function data_init() {
     // type: attack | status | heal | buff ; target: enemy | enemies | party
     // base: base damage (attacks) or max % of max HP healed / % ATK boost (heal, buff)
-    // minigame: the skill-based component (PRD: Combat). Several characters.md minigames
-    // (lens focus, stirring, chords, paint tracing, Operation) are placeholders using
-    // timing / mash / memory until those minigames are built.
+    // minigame: the skill-based component (PRD: Combat); see mini_start in scr_combat.
+    // ap: AP cost per use.
     global.SKILLS = {
-        strike:           { name: "Attack",           type: "attack", target: "enemy",   base: 0,  minigame: "",       cd: 0, status: "",        turns: 0, desc: "A basic hit." },
-        pop_quiz:         { name: "Pop Quiz",         type: "buff",   target: "party",   base: 30, minigame: "memory", cd: 2, status: "",        turns: 3, desc: "Party ATK +10% per correct answer (max 30%)." },
-        homerun:          { name: "Homerun",          type: "attack", target: "enemy",   base: 20, minigame: "timing", cd: 2, status: "",        turns: 0, desc: "20 base dmg. Time the swing; perfect = crit." },
-        freeze_frame:     { name: "Freeze Frame",     type: "status", target: "enemy",   base: 0,  minigame: "focus",  cd: 2, status: "stun",    turns: 2, desc: "Stun one enemy 2 turns (3 on a sharp shot)." },
-        soups_on:         { name: "Soup's On",        type: "heal",   target: "party",   base: 30, minigame: "stir",   cd: 2, status: "",        turns: 0, desc: "Heal all allies up to 30% max HP. Stir!" },
-        death_blade:      { name: "Death Blade",      type: "attack", target: "enemy",   base: 40, minigame: "timing", cd: 3, status: "",        turns: 0, desc: "40 base dmg. Time the strike; perfect = crit." },
-        encore:           { name: "Encore",           type: "attack", target: "enemies", base: 10, minigame: "chords", cd: 3, status: "",        turns: 0, desc: "10 base dmg to all enemies. Perfect = crit." },
-        chemical_burn:    { name: "Chemical Burn",    type: "attack", target: "enemies", base: 15, minigame: "mash",   cd: 4, status: "poison",  turns: 3, desc: "15 dmg to all enemies + poison (3 turns)." },
-        creative_license: { name: "Creative License", type: "attack", target: "enemy",   base: 15, minigame: "trace",  cd: 4, status: "confuse", turns: 3, desc: "15 dmg + confuse one enemy (3 turns)." },
-        invasive_surgery: { name: "Invasive Surgery", type: "heal",   target: "party",   base: 40, minigame: "operation", cd: 5, status: "",        turns: 0, desc: "Heal all allies up to 40%. Operate cleanly!" },
+        strike:           { name: "Attack",           type: "attack", target: "enemy",   base: 0,  minigame: "",       ap: 0, status: "",        turns: 0, desc: "A basic hit." },
+        pop_quiz:         { name: "Pop Quiz",         type: "buff",   target: "party",   base: 30, minigame: "memory", ap: 3, status: "",        turns: 3, desc: "Party ATK +10% per correct answer (max 30%)." },
+        homerun:          { name: "Homerun",          type: "attack", target: "enemy",   base: 20, minigame: "timing", ap: 3, status: "",        turns: 0, desc: "20 base dmg. Time the swing; perfect = crit." },
+        freeze_frame:     { name: "Freeze Frame",     type: "status", target: "enemy",   base: 0,  minigame: "focus",  ap: 3, status: "stun",    turns: 2, desc: "Stun one enemy 2 turns (3 on a sharp shot)." },
+        soups_on:         { name: "Soup's On",        type: "heal",   target: "party",   base: 30, minigame: "stir",   ap: 3, status: "",        turns: 0, desc: "Heal all allies up to 30% max HP. Stir!" },
+        death_blade:      { name: "Death Blade",      type: "attack", target: "enemy",   base: 40, minigame: "timing", ap: 4, status: "",        turns: 0, desc: "40 base dmg. Time the strike; perfect = crit." },
+        encore:           { name: "Encore",           type: "attack", target: "enemies", base: 10, minigame: "chords", ap: 4, status: "",        turns: 0, desc: "10 base dmg to all enemies. Perfect = crit." },
+        chemical_burn:    { name: "Chemical Burn",    type: "attack", target: "enemies", base: 15, minigame: "mash",   ap: 5, status: "poison",  turns: 3, desc: "15 dmg to all enemies + poison (3 turns)." },
+        creative_license: { name: "Creative License", type: "attack", target: "enemy",   base: 15, minigame: "trace",  ap: 5, status: "confuse", turns: 3, desc: "15 dmg + confuse one enemy (3 turns)." },
+        invasive_surgery: { name: "Invasive Surgery", type: "heal",   target: "party",   base: 40, minigame: "operation", ap: 6, status: "",        turns: 0, desc: "Heal all allies up to 40%. Operate cleanly!" },
     };
 
     // role: [Starter|Advanced] DPS / Controller / Healer
@@ -92,7 +96,8 @@ function make_member(_d) {
     _m.xp = 0;
     _m.maxHp = _d.hp;
     _m.skills = arr_copy(_d.skills);
-    _m.cd = {};
+    _m.maxAp = AP_BASE;
+    _m.ap = AP_BASE;
     _m.buff = undefined;
     _m.defending = false;
     _m.px = 0; _m.pz = 0; _m.py = 0; _m.face = 270; _m.moving = false;
@@ -127,6 +132,7 @@ function gain_xp(_m, _amount) {
         _m.level++;
         _m.maxHp += 5; _m.hp = min(_m.maxHp, _m.hp + 5);
         _m.atk += 3; _m.def += 2;
+        _m.maxAp += 1; _m.ap = min(_m.maxAp, _m.ap + 1);
         array_push(_lines, $"{_m.name} reached level {_m.level}!");
     }
     return _lines;

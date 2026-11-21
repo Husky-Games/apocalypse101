@@ -268,7 +268,7 @@ function draw_bar(_x, _y, _w, _h, _frac, _col, _bg = rgb(0x0c0f16)) {
 
 function draw_member_card(_m, _x, _y, _w, _active, _show_xp) {
     var _ko = _m.hp <= 0;
-    var _h = _show_xp ? 62 : 56;
+    var _h = _show_xp ? 74 : 68;
     if (is_struct(_m.buff)) _h += 18;
     draw_panel(_x, _y, _x + _w, _y + _h, _active ? rgb(0x2a2414) : COL_PANEL, _active ? COL_ACCENT : COL_LINE, 0.9);
     gpu_set_tex_filter(false);
@@ -278,8 +278,15 @@ function draw_member_card(_m, _x, _y, _w, _active, _show_xp) {
     draw_txt(_x + _w - 10, _y + 9, $"Lv{_m.level} · " + (_ko ? "KO" : $"{_m.hp}/{_m.maxHp}"), _ko ? COL_WARN : COL_MUTED, fnt_small, fa_right);
     var _frac = _m.hp / _m.maxHp;
     draw_bar(_x + 10, _y + 34, _w - 20, 8, _frac, _frac > 0.5 ? COL_GOOD : (_frac > 0.25 ? COL_ACCENT : COL_WARN));
-    var _ny = _y + 46;
-    if (_show_xp) { draw_bar(_x + 10, _y + 47, _w - 20, 4, _m.xp / (_m.level * 25), rgb(0x6aa0f0)); _ny = _y + 54; }
+    // AP: one pip per point
+    draw_txt(_x + 10, _y + 45, "AP", rgb(0x6ab4ff), fnt_small);
+    var _px1 = _x + 34, _pw = (_w - 44) / max(1, _m.maxAp);
+    for (var _a = 0; _a < _m.maxAp; _a++) {
+        draw_set_colour(_a < _m.ap ? rgb(0x6ab4ff) : rgb(0x1c2a40));
+        draw_rectangle(_px1 + _a * _pw, _y + 49, _px1 + (_a + 1) * _pw - 3, _y + 55, false);
+    }
+    var _ny = _y + 58;
+    if (_show_xp) { draw_bar(_x + 10, _y + 60, _w - 20, 4, _m.xp / (_m.level * 25), rgb(0xb08af0)); _ny = _y + 66; }
     if (is_struct(_m.buff)) draw_txt(_x + 10, _ny, $"ATK +{round((_m.buff.mult - 1) * 100)}% ({_m.buff.turns})", COL_ACCENT, fnt_small);
     return _h;
 }
@@ -518,7 +525,7 @@ function draw_combat_ui() {
     var _px = 14;
     for (var _i = 0; _i < array_length(_all); _i++) {
         var _m = _all[_i];
-        var _h = 56 + (is_struct(_m.buff) ? 18 : 0);
+        var _h = 68 + (is_struct(_m.buff) ? 18 : 0);
         draw_member_card(_m, _px, GUI_H - 14 - _h, 220, _m == _c.active, false);
         _px += 228;
     }

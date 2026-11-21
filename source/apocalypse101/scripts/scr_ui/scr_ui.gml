@@ -92,9 +92,9 @@ function ui_do(_action, _arg) {
             else if (array_length(_G.sel) < MAX_PARTY) array_push(_G.sel, _arg);
             break;
         case "rest":
-            _G.teacher.hp = _G.teacher.maxHp;
-            for (var _i = 0; _i < array_length(_G.roster); _i++) _G.roster[_i].hp = _G.roster[_i].maxHp;
-            toast("Everyone rests and recovers.");
+            _G.teacher.hp = _G.teacher.maxHp; _G.teacher.ap = _G.teacher.maxAp;
+            for (var _i = 0; _i < array_length(_G.roster); _i++) { _G.roster[_i].hp = _G.roster[_i].maxHp; _G.roster[_i].ap = _G.roster[_i].maxAp; }
+            toast("Everyone rests and recovers HP and AP.");
             break;
         case "leave":
             _G.party = array_filter(_G.roster, function(_m) { return arr_has(global.G.sel, _m.key); });
@@ -261,7 +261,7 @@ function draw_roster() {
         draw_txt(_cx + 14, _cy + 32, $"{_m.role} · {_m.major} · Lv{_m.level}", COL_MUTED, fnt_small);
         draw_txt(_cx + 14, _cy + 52, $"HP {_m.maxHp}    ATK {_m.atk}    DEF {_m.def}", COL_TEXT, fnt_small);
         var _sk = global.SKILLS[$ _m.skills[0]];
-        draw_txt(_cx + 14, _cy + 72, _sk.name + ": " + _sk.desc, COL_MUTED, fnt_small, fa_left, _cw - 90);
+        draw_txt(_cx + 14, _cy + 72, $"{_sk.name} ({_sk.ap} AP): {_sk.desc}", COL_MUTED, fnt_small, fa_left, _cw - 90);
         var _ty = _cy + _ch - 24;
         var _notes = [];
         if (!_m.canJump) array_push(_notes, "! Can't jump fences");
@@ -272,13 +272,14 @@ function draw_roster() {
             draw_txt(_cx + 14 + _n * 150, _ty, _notes[_n], string_char_at(_notes[_n], 1) == "!" ? COL_WARN : COL_ACCENT, fnt_small);
         }
         if (_m.hp < _m.maxHp) draw_txt(_cx + _cw - 70, _cy + 32, $"HP {_m.hp}/{_m.maxHp}", COL_WARN, fnt_small, fa_right);
+        if (_m.ap < _m.maxAp) draw_txt(_cx + _cw - 70, _cy + 50, $"AP {_m.ap}/{_m.maxAp}", rgb(0x6ab4ff), fnt_small, fa_right);
     }
 
     var _by = _y2 - 56;
     var _n2 = array_length(_G.sel);
     draw_txt(_x1 + 30, _by + 4, $"Party {_n2}/{MAX_PARTY}", COL_MUTED, fnt_ui);
     draw_txt(_x1 + 30, _by + 28, "Art by LimeZu · limezu.itch.io", COL_MUTED, fnt_small);
-    ui_draw_button(_x2 - 30 - 360 - 12 - 180, _by, 180, 42, "Rest (full heal)", "rest", 0);
+    ui_draw_button(_x2 - 30 - 360 - 12 - 180, _by, 180, 42, "Rest (HP + AP)", "rest", 0);
     ui_draw_button(_x2 - 30 - 360, _by, 360, 42, $"Leave classroom with {_n2} student{_n2 == 1 ? "" : "s"}", "leave", 0, true, true);
 }
 
