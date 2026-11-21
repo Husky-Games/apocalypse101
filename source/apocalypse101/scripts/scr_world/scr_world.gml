@@ -13,6 +13,9 @@ function game_init() {
         intro: true,
         inv: { scrap: 0, cloth: 0, bandage: 1, medkit: 0, energy: 0 },
         clues: [],
+        cleared: [],           // areas whose clue has been found (see ROUTE)
+        tunnels_found: false,  // the Cafeteria hatch has been revealed
+        tunnels_visited: false,
         crafted: {},
         fence_cleared: false,
         finished: false,
@@ -84,6 +87,7 @@ function area_use(_A) {
 function area_enter(_id, _x, _z, _face) {
     var _G = global.G, _A = _G.areas[$ _id];
     area_use(_A);
+    if (_id == "tunnels") _G.tunnels_visited = true;
     var _t = _G.teacher;
     _t.px = _x; _t.pz = _z; _t.py = 0; _t.face = _face; _t.moving = false;
     // followers line up behind the leader
@@ -100,6 +104,40 @@ function area_enter(_id, _x, _z, _face) {
 }
 
 function area_is(_id) { return global.G.area.id == _id; }
+
+/* -------------------------------------------------------------- progression */
+// The route through campus (content/campus_map.svg numbers 1, 2, 3, 6, 4, 5). Each building's
+// clue unlocks the next; the Cafeteria clue reveals the tunnels, the only way into the Lab and
+// Library.
+#macro ROUTE [["main", "Main Classroom"], ["gym", "Gym"], ["theater", "Theater"], ["cafe", "Cafeteria"], ["lab", "Lab"], ["library", "Library"]]
+
+/// Is a door gate satisfied? "" = always, "tunnels" = been underground, otherwise an area whose clue was found.
+function gate_ok(_g) {
+    var _G = global.G;
+    if (_g == "") return true;
+    if (_g == "tunnels") return _G.tunnels_visited;
+    return arr_has(_G.cleared, _g);
+}
+
+/// The next building on the route, as [id, name], or undefined when all are done.
+function route_next() {
+    var _r = ROUTE;
+    for (var _i = 0; _i < array_length(_r); _i++) if (!arr_has(global.G.cleared, _r[_i][0])) return _r[_i];
+    return undefined;
+}
+
+function objective_text() {
+    var _G = global.G, _n = route_next();
+    if (is_undefined(_n)) return "You have searched every building.";
+    switch (_n[0]) {
+        case "main": return "Search the Main Classroom for anything left behind.";
+        case "cafe":
+            return _G.fence_cleared ? "Search the Cafeteria." : "Search the Cafeteria, past the fence. Everyone must be able to clear it.";
+        case "lab": return "The Lab is caved in. Find another way: the tunnels under the Cafeteria.";
+        case "library": return "Follow the tunnels to the Library.";
+    }
+    return "Search the " + _n[1] + ".";
+}
 
 /* ------------------------------------------------------------ world build */
 
@@ -165,9 +203,10 @@ function add_explore_enemy(_type, _count, _x, _z) {
 }
 
 /// A door trigger at (x, z) in the current area leading to area _to at (tx, tz) facing _tface.
-/// Blocked doors only show a message.
-function add_door(_x, _z, _to, _tx, _tz, _tface, _label, _blocked = false) {
-    var _d = { x: _x, z: _z, to: _to, tx: _tx, tz: _tz, face: _tface, label: _label, blocked: _blocked };
+/// Blocked doors only show a message. _gate: requirement to use it (see gate_ok), with _msg shown
+/// otherwise; _hide: requirement for the door to exist at all (hidden hatches).
+function add_door(_x, _z, _to, _tx, _tz, _tface, _label, _blocked = false, _gate = "", _msg = "", _hide = "") {
+    var _d = { x: _x, z: _z, to: _to, tx: _tx, tz: _tz, face: _tface, label: _label, blocked: _blocked, gate: _gate, msg: _msg, hide: _hide };
     array_push(global.G.area.doors, _d);
     return _d;
 }
@@ -226,6 +265,7 @@ function near_fence(_x, _z) {
 function nearest_door(_x, _z) {
     var _ds = global.G.area.doors, _best = undefined, _bd = 1.7;
     for (var _i = 0; _i < array_length(_ds); _i++) {
+        if (!gate_ok(_ds[_i].hide)) continue;
         var _d = point_distance(_ds[_i].x, _ds[_i].z, _x, _z);
         if (_d < _bd) { _bd = _d; _best = _ds[_i]; }
     }
@@ -239,7 +279,7 @@ function find_interact() {
     _G.door = _door;
     if (is_struct(_door)) {
         if (_door.blocked) return { label: "E / Space / A: Try the door", action: "door" };
-        return { label: "E / Space / A: " + _door.label, action: "door" };
+        return { label: "E / Space / A: " + _door.label + (gate_ok(_door.gate) ? "" : " (locked)"), action: "door" };
     }
     if (near_table(_t.px, _t.pz)) return { label: "E / Space / A: Craft", action: "craft" };
     if (area_is("main") && point_distance(_t.px, _t.pz, BOARD_X, BOARD_Z) < 3) return { label: "E / Space / A: Change party", action: "roster" };
@@ -261,6 +301,7 @@ function interact() {
 function use_door(_d) {
     if (!is_struct(_d)) return;
     if (_d.blocked) { toast("The door is jammed shut. Something heavy is wedged against it.", 2.6); return; }
+    if (!gate_ok(_d.gate)) { toast(_d.msg != "" ? _d.msg : "Locked.", 3); return; }
     area_enter(_d.to, _d.tx, _d.tz, _d.face);
 }
 
@@ -302,7 +343,11 @@ function pickup(_node) {
     if (_node.type == "clue") {
         var _text = global.CLUES[array_length(_G.clues) mod array_length(global.CLUES)];
         array_push(_G.clues, _text);
-        toast($"Clue: {_text}", 6);
+        if (!arr_has(_G.cleared, _G.area.id)) array_push(_G.cleared, _G.area.id);
+        var _n = route_next();
+        var _after = is_undefined(_n) ? "" : "\nNext: " + _n[1] + ".";
+        if (_G.area.id == "cafe") { _G.tunnels_found = true; _after = "\nA hatch has opened in the kitchen floor..."; }
+        toast($"Clue: {_text}" + _after, 6);
         if (array_length(_G.clues) == array_length(global.CLUES)) _G.finish_pending = 6.2;
     } else {
         var _it = global.ITEMS[$ _node.type];

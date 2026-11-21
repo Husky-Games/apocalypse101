@@ -17,6 +17,7 @@ function campus_build() {
     build_library();
     build_cafeteria();
     build_lab();
+    build_tunnels();
 }
 
 /* ============================================================= helpers */
@@ -35,14 +36,14 @@ function add_building(_x1, _z1, _x2, _z2, _roof, _fac, _doors) {
             case "e": _x = _x2 + 0.7; _z = _d.pos; break;
         }
         if (_d.blocked) add_door(_x, _z, "", 0, 0, 0, "", true);
-        else add_door(_x, _z, _d.to, _d.tx, _d.tz, _d.face, _d.label);
+        else add_door(_x, _z, _d.to, _d.tx, _d.tz, _d.face, _d.label, false, _d.gate, _d.msg);
     }
     return _r;
 }
 
-function door_s(_pos, _to, _tx, _tz, _label) { return { side: "s", pos: _pos, blocked: false, to: _to, tx: _tx, tz: _tz, face: 90, label: _label }; }
-function door_open(_side, _pos, _to, _tx, _tz, _face, _label) { return { side: _side, pos: _pos, blocked: false, to: _to, tx: _tx, tz: _tz, face: _face, label: _label }; }
-function door_x(_side, _pos) { return { side: _side, pos: _pos, blocked: true, to: "", tx: 0, tz: 0, face: 0, label: "" }; }
+function door_s(_pos, _to, _tx, _tz, _label, _gate = "", _msg = "") { return { side: "s", pos: _pos, blocked: false, to: _to, tx: _tx, tz: _tz, face: 90, label: _label, gate: _gate, msg: _msg }; }
+function door_open(_side, _pos, _to, _tx, _tz, _face, _label, _gate = "", _msg = "") { return { side: _side, pos: _pos, blocked: false, to: _to, tx: _tx, tz: _tz, face: _face, label: _label, gate: _gate, msg: _msg }; }
+function door_x(_side, _pos) { return { side: _side, pos: _pos, blocked: true, to: "", tx: 0, tz: 0, face: 0, label: "", gate: "", msg: "" }; }
 
 /// Destroyed building: rubble footprint you can't enter, with junk spilling out front.
 function add_ruin(_x1, _z1, _x2, _z2) {
@@ -168,26 +169,27 @@ function build_campus() {
     add_rect(16.2, 18.2, 29.5, 18.8, "lowwall");
     add_rect(16.2, 5.2, 16.8, 18.8, "lowwall");
     add_decor("floodlight", 17.6, 6.6); add_decor("floodlight", 17.6, 17.9);
+    add_hatch("annex", 21.5, 9.5);
 
     // 6 Cafeteria (kitchen block behind)
     add_rect(89.5, 7.5, 99, 10.2, "roofonly");
     add_building(72, 10, 102, 16.5, "roof", "fac_win",
-        [door_s(93, "cafe", 13, 11.7, "Enter the Cafeteria")]);
+        [door_s(93, "cafe", 13, 11.7, "Enter the Cafeteria", "theater", "Locked. Something in the Theater might open it.")]);
 
     // 3 Theater: a fan-shaped hall, approximated by three blocks; doors face the avenue
     add_building(17, 20.5, 25, 27, "roof2", "fac_win2", []);
     add_building(12.5, 27, 22.5, 40, "roof2", "fac_arch",
-        [door_open("e", 33, "theater", 11, 17.7, 90, "Enter the Theater")]);
+        [door_open("e", 33, "theater", 11, 17.7, 90, "Enter the Theater", "gym", "Locked. Something in the Gym might open it.")]);
     add_building(16.5, 40, 24.5, 46, "roof2", "fac_win2", []);
 
     // 5 Library with its round entrance hall
     add_building(90.5, 24.5, 104, 41, "roof", "fac_arch", []);
     add_building(87, 29.5, 90.5, 36, "roof2", "fac_door",
-        [door_open("w", 33, "library", 11, 15.7, 90, "Enter the Library")]);
+        [door_x("w", 33)]);
 
     // 4 Lab, joined to Classroom C (and the ruins) by covered corridors
     add_building(38, 48.5, 62, 58.5, "roof", "fac_win2",
-        [door_s(50, "lab", 10, 11.7, "Enter the Lab")]);
+        [door_x("s", 50)]);
     add_rect(42, 43, 44.5, 48.6, "roofonly");
     add_rect(55.5, 43, 57.5, 48.6, "roofonly");
 
@@ -244,6 +246,8 @@ function build_main() {
     add_prop("tdesk", 10.6, 5.6, 1.8, 0.8);
     add_prop("locker", 1.7, 3.75, 0.8, 0.5);
     add_table(3, 5.5);
+    add_item("clue", 4.5, 11.5);
+    add_hatch("main", 12, 11.5);
 }
 
 // Classrooms A, B, C (A's doors are all blocked; its way in is a tunnel, coming later)
@@ -255,6 +259,7 @@ function build_classroom(_id, _name) {
             add_wallart("board", 4.5, 3); add_wallart("map", 11.5, 3);
             add_prop("locker", rx(11.3), rz(0.75), 0.8, 0.5);
             add_item("energy", rx(1), rz(8)); add_item("food", rx(11), rz(8));
+            add_hatch("classA", rx(11.2), rz(2.2));
             break;
         case "classB":
             room_walls([wd_x(8.25)], [wd_open(8.25, "campus", 71, 30.9, 270, "Leave Classroom B")], [wd_x(7.5)], []);
@@ -266,7 +271,7 @@ function build_classroom(_id, _name) {
             break;
         case "classC":
             room_walls([wd_open(8.25, "campus", 43, 35.2, 90, "Leave Classroom C")],
-                       [wd_open(8.25, "lab", 4, 4.3, 270, "Take the corridor to the Lab")], [], []);
+                       [wd_x(8.25)], [], []);   // the corridor to the Lab has caved in
             add_wallart("board", 4, 3);
             add_prop("computer", rx(11), rz(0.8), 2, 1);
             add_item("cloth", rx(1.5), rz(8));
@@ -289,6 +294,8 @@ function build_gym() {
     add_decal("mat_blue", rx(18), rz(10), rx(21.5), rz(13.5), "tile");
     add_prop("barbell", rx(19.6), rz(11.6), 2, 0.5, false); add_prop("kettlebell", rx(20.8), rz(12.8), 1, 0.5, false);
     add_item("bandage", rx(3), rz(12)); add_item("scrap", rx(20), rz(3.5));
+    add_item("clue", rx(11), rz(2.6));
+    add_hatch("gym", rx(20), rz(5));
     add_explore_enemy("shade", 2, rx(11), rz(7));
 }
 
@@ -308,6 +315,7 @@ function build_theater() {
         }
     add_item("clue", rx(10), rz(6)); add_item("food", rx(18), rz(14.5));
     add_explore_enemy("hollow", 1, rx(4), rz(14.5));
+    add_hatch("theater", rx(19), rz(14.5));
 }
 
 // 5 Library: bookcases on the walls, rows of shelves, the front desk
@@ -324,6 +332,7 @@ function build_library() {
     add_prop("computer", rx(4), rz(12), 2, 1); add_prop("computer", rx(6), rz(12), 2, 1);
     add_item("clue", rx(10), rz(4)); add_item("medkit", rx(1.5), rz(12.5)); add_item("energy", rx(18.5), rz(10));
     add_explore_enemy("hollow", 2, rx(10), rz(8));
+    add_hatch("library", rx(18.5), rz(12.8));
 }
 
 // 6 Cafeteria: kitchen along the back wall, lunch tables, vending machines
@@ -340,13 +349,13 @@ function build_cafeteria() {
     for (var _i = 0; _i < 4; _i++) add_prop("lunchtable", rx(_xs2[_i]), rz(7.5), 1.8, 1.6);
     add_item("clue", rx(12), rz(6.5)); add_item("food", rx(1.5), rz(8.5)); add_item("food", rx(22.5), rz(8.5));
     add_explore_enemy("hollow", 3, rx(12), rz(2.6));
+    add_hatch("cafe", rx(15), rz(2.3));
 }
 
 // 4 Lab: cabinets and specimens, a workbench for crafting; the north corridor leads to Classroom C
 function build_lab() {
     var _A = interior("lab", "Lab", 18, 10, "fl_tile");
-    room_walls([wd_open(4, "classC", 8.25, 10.7, 90, "Take the corridor to Classroom C")],
-               [wd_open(10, "campus", 50, 59.9, 270, "Leave the Lab")], [], []);
+    room_walls([wd_x(4)], [wd_x(10)], [], []);
     add_wallart("whiteboard", rx(9), 3);
     add_prop("cabinet", rx(6), rz(0.9), 1.7, 0.8); add_prop("cabinet2", rx(7.8), rz(0.9), 1.7, 0.8);
     add_prop("chemshelf", rx(13), rz(0.9), 1.9, 0.8); add_prop("chemshelf", rx(15), rz(0.9), 1.9, 0.8);
@@ -355,4 +364,100 @@ function build_lab() {
     add_table(rx(7), rz(6.5));
     add_item("clue", rx(12), rz(5)); add_item("medkit", rx(2), rz(8)); add_item("bandage", rx(17), rz(8.8));
     add_explore_enemy("shade", 2, rx(14), rz(4));
+    add_hatch("lab", rx(3), rz(4));
+}
+
+/* ============================================================= tunnels */
+// The tunnels under the school (blue lines on the map), found mid-game through a hatch in the
+// Cafeteria kitchen. They are the only way into the Lab and the Library. The tunnel area uses
+// campus coordinates, so each entrance sits under its building.
+
+/// Where each entrance comes out in the tunnels (campus coordinates).
+function tunnel_entrances() {
+    return {
+        main: [56, 26], gym: [50, 7], annex: [21.5, 13.5], theater: [17.5, 42], cafe: [75, 15.5],
+        lab: [51, 54], library: [99, 39], classA: [43, 26],
+    };
+}
+
+/// A hatch down to the tunnels at (x, z) in the current area, for entrance _key.
+/// The Cafeteria hatch appears with its clue; other hatches (apart from the Lab and Library,
+/// which are only reached from below) appear once the tunnels have been explored.
+function add_hatch(_key, _x, _z) {
+    var _G = global.G;
+    if (!variable_struct_exists(_G, "hatches")) _G.hatches = {};
+    var _e = tunnel_entrances()[$ _key];
+    var _hide = _key == "cafe" ? "cafe" : ((_key == "lab" || _key == "library") ? "" : "tunnels");
+    var _d = add_door(_x, _z, "tunnels", _e[0], _e[1] + 1.4, 270, "Climb down into the tunnels", false, "", "", _hide);
+    var _b = add_box(_x, _z, 1.4, 1.4, 0, c_white, false, 0, "hatch");
+    _b.box.door = _d;
+    _G.hatches[$ _key] = { area: _G.area.id, x: _x, z: _z };
+}
+
+function build_tunnels() {
+    var _A = area_new("tunnels", "Tunnels", CAMPUS_W, CAMPUS_H);
+    _A.tunnel = true;
+    _A.floor = "fl_tile";
+    _A.tint = rgb(0x5a6278);
+    area_use(_A);
+
+    // Corridors (axis-aligned runs approximating the blue lines), 3 units wide
+    var _segs = [
+        [56, 14, 56, 32], [21.5, 14, 56, 14], [50, 7, 50, 14],            // Main Classroom - Gym - court
+        [56, 20, 83, 20], [72, 15.5, 72, 20], [72, 15.5, 75, 15.5],       // - Cafeteria
+        [83, 20, 83, 45], [83, 45, 99, 45], [99, 39, 99, 45],             // Cafeteria - Library
+        [34.5, 31.5, 56, 31.5], [43, 26, 43, 31.5],                       // - Classroom A
+        [34.5, 31.5, 34.5, 48], [17.5, 48, 34.5, 48], [17.5, 42, 17.5, 48], // - Theater
+        [34.5, 43.5, 42, 43.5], [42, 43.5, 42, 54], [42, 54, 51, 54],     // - Lab
+    ];
+    var _ents = tunnel_entrances(), _keys = variable_struct_get_names(_ents);
+    var _w = _A.w, _h = _A.h;
+    var _grid = array_create(_w * _h, false);
+    for (var _iz = 0; _iz < _h; _iz++)
+        for (var _ix = 0; _ix < _w; _ix++) {
+            var _x = _ix + 0.5, _z = _iz + 0.5, _walk = false;
+            for (var _i = 0; _i < array_length(_segs) && !_walk; _i++) {
+                var _s = _segs[_i];
+                if (_x >= min(_s[0], _s[2]) - 1.5 && _x <= max(_s[0], _s[2]) + 1.5 && _z >= min(_s[1], _s[3]) - 1.5 && _z <= max(_s[1], _s[3]) + 1.5) _walk = true;
+            }
+            for (var _i = 0; _i < array_length(_keys) && !_walk; _i++) {   // a small chamber under each entrance
+                var _e = _ents[$ _keys[_i]];
+                if (abs(_x - _e[0]) <= 2.5 && abs(_z - _e[1]) <= 2.5) _walk = true;
+            }
+            _grid[_iz * _w + _ix] = _walk;
+        }
+    _A.grid = _grid;
+
+    // Solid cells that touch a walkable one become colliders (merged into runs per row)
+    for (var _iz = 0; _iz < _h; _iz++) {
+        var _run = -1;
+        for (var _ix = 0; _ix <= _w; _ix++) {
+            var _edge = false;
+            if (_ix < _w && !_grid[_iz * _w + _ix])
+                for (var _dz = -1; _dz <= 1; _dz++) for (var _dx = -1; _dx <= 1; _dx++) {
+                    var _nx = _ix + _dx, _nz = _iz + _dz;
+                    if (_nx >= 0 && _nz >= 0 && _nx < _w && _nz < _h && _grid[_nz * _w + _nx]) _edge = true;
+                }
+            if (_edge && _run < 0) _run = _ix;
+            if (!_edge && _run >= 0) { array_push(_A.colliders, { minX: _run, maxX: _ix, minZ: _iz, maxZ: _iz + 1 }); _run = -1; }
+        }
+    }
+
+    // Ladders up to each building's hatch (the Library's opens once the Lab has been searched)
+    var _names = { main: "the Main Classroom", gym: "the Gym", annex: "the outdoor court", theater: "the Theater", cafe: "the Cafeteria",
+                   lab: "the Lab", library: "the Library", classA: "Classroom A" };
+    var _hs = global.G.hatches;
+    for (var _i = 0; _i < array_length(_keys); _i++) {
+        var _k = _keys[_i];
+        if (!variable_struct_exists(_hs, _k)) continue;
+        var _e = _ents[$ _k], _hh = _hs[$ _k];
+        var _gate = _k == "library" ? "lab" : "";
+        var _d = add_door(_e[0], _e[1], _hh.area, _hh.x, _hh.z + 1.3, 270, "Climb up into " + _names[$ _k], false, _gate,
+                          "The hatch above won't budge. Maybe something in the Lab explains how to open it.");
+        var _b = add_box(_e[0], _e[1] - 0.2, 1.2, 0.4, 0, c_white, false, 0, "ladder");
+        _b.box.door = _d;
+    }
+
+    add_item("medkit", 42, 50); add_item("scrap", 64, 20); add_item("energy", 83, 26); add_item("cloth", 25, 48);
+    add_explore_enemy("shade", 2, 34.5, 39); add_explore_enemy("hollow", 2, 83, 38); add_explore_enemy("shade", 1, 30, 14);
 }

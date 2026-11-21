@@ -95,7 +95,8 @@ function draw_world() {
     draw_rectangle(_cx - 2, _cy - 2, _cx + _vw + 2, _cy + _vh + 2, false);
     var _ix0 = max(0, floor(_cx / U)), _iz0 = max(0, floor(_cy / U));
     var _ix1 = min(ceil(_A.w) - 1, ceil((_cx + _vw) / U)), _iz1 = min(ceil(_A.h) - 1, ceil((_cy + _vh) / U));
-    for (var _iz = _iz0; _iz <= _iz1; _iz++)
+    if (variable_struct_exists(_A, "tunnel")) draw_tunnel_ground(_A, _ix0, _iz0, _ix1, _iz1);
+    else for (var _iz = _iz0; _iz <= _iz1; _iz++)
         for (var _ix = _ix0; _ix <= _ix1; _ix++) {
             var _g = ground_at(_ix, _iz);
             if (_g != "") atl_tile(_g, _ix, _iz);
@@ -113,7 +114,7 @@ function draw_world() {
         var _b = _G.boxes[_i];
         if (_b.kind == "none") continue;
         // boarded doors draw over their wall (north) or on top of everything (thin side walls)
-        var _k = _b.kind == "doorx" ? (_b.side == "n" ? _b.z2 + 0.6 : 9999) : _b.z2;
+        var _k = _b.kind == "doorx" ? (_b.side == "n" ? _b.z2 + 0.6 : 9999) : (_b.kind == "hatch" ? _b.z1 - 1 : _b.z2);
         array_push(_list, { k: _k, t: 0, r: _b });
     }
     var _f = _A.fence;
@@ -180,10 +181,35 @@ function draw_world() {
     // open doors glow faintly so they are easy to find
     for (var _i = 0; _i < array_length(_A.doors); _i++) {
         var _d = _A.doors[_i];
-        if (!_d.blocked) draw_circle_colour(wx(_d.x), wy(_d.z), 1.1 * U, rgb(0x3a3018), c_black, false);
+        if (!_d.blocked && gate_ok(_d.hide)) draw_circle_colour(wx(_d.x), wy(_d.z), 1.1 * U, gate_ok(_d.gate) ? rgb(0x3a3018) : rgb(0x2a1010), c_black, false);
     }
     gpu_set_blendmode(bm_normal);
     gpu_set_tex_filter(true);
+}
+
+/// Tunnels: concrete floor where walkable; stone walls along the edges (with a brick face where
+/// a wall has floor south of it); solid rock elsewhere stays black.
+function draw_tunnel_ground(_A, _ix0, _iz0, _ix1, _iz1) {
+    var _w = _A.w, _g = _A.grid;
+    for (var _iz = _iz0; _iz <= _iz1; _iz++)
+        for (var _ix = _ix0; _ix <= _ix1; _ix++) {
+            if (_g[_iz * _w + _ix]) { atl_tile("fl_tile", _ix, _iz); continue; }
+            var _near = false;
+            for (var _dz = -1; _dz <= 1; _dz++) for (var _dx = -1; _dx <= 1; _dx++) {
+                var _nx = _ix + _dx, _nz = _iz + _dz;
+                if (_nx >= 0 && _nz >= 0 && _nx < _w && _nz < _A.h && _g[_nz * _w + _nx]) _near = true;
+            }
+            if (!_near) continue;
+            var _x = _ix * U, _y = _iz * U;
+            draw_set_colour(rgb(0x2e2a28)); draw_rectangle(_x, _y, _x + U - 1, _y + U - 1, false);
+            if (_iz + 1 < _A.h && _g[(_iz + 1) * _w + _ix]) {
+                draw_set_colour(rgb(0x5a4638)); draw_rectangle(_x, _y + U * 0.3, _x + U - 1, _y + U - 1, false);
+                draw_set_colour(rgb(0x3e3028));
+                draw_line(_x, _y + U * 0.62, _x + U, _y + U * 0.62);
+                draw_line(_x + ((_ix mod 2) ? U * 0.5 : U * 0.2), _y + U * 0.3, _x + ((_ix mod 2) ? U * 0.5 : U * 0.2), _y + U * 0.62);
+                draw_line(_x + ((_ix mod 2) ? U * 0.2 : U * 0.7), _y + U * 0.62, _x + ((_ix mod 2) ? U * 0.2 : U * 0.7), _y + U);
+            }
+        }
 }
 
 /// Campus building: rooftop 9-slice, facade modules along the south edge, doors.
@@ -229,6 +255,23 @@ function draw_box(_b) {
     var _mx = (_x1 + _x2) / 2;
     switch (_b.kind) {
         case "bld": draw_building(_b); break;
+        case "hatch":
+            // a manhole cover pushed aside (only once the hatch has been found)
+            if (!gate_ok(_b.door.hide)) break;
+            draw_set_colour(rgb(0x6a6e78)); draw_circle(_mx, (_y1 + _y2) / 2, 0.62 * U, false);
+            draw_set_colour(rgb(0x050506)); draw_circle(_mx, (_y1 + _y2) / 2, 0.48 * U, false);
+            draw_set_colour(rgb(0x8a6a42));
+            for (var _k2 = -1; _k2 <= 1; _k2++) draw_line_width(_mx - 0.28 * U, (_y1 + _y2) / 2 + _k2 * 0.2 * U, _mx + 0.28 * U, (_y1 + _y2) / 2 + _k2 * 0.2 * U, 4);
+            draw_set_colour(rgb(0x7a7e88)); draw_ellipse(_mx + 0.4 * U, _y1 - 0.1 * U, _mx + 1.4 * U, _y1 + 0.5 * U, false);
+            break;
+        case "ladder":
+            // iron rungs up the wall to a hatch; a faint shaft of light when it is open
+            var _open = gate_ok(_b.door.gate), _top = _y2 - 2.6 * U;
+            draw_set_colour(_open ? rgb(0x9a9ea8) : rgb(0x5a5e66));
+            draw_line_width(_mx - 0.4 * U, _top, _mx - 0.4 * U, _y2, 5); draw_line_width(_mx + 0.4 * U, _top, _mx + 0.4 * U, _y2, 5);
+            for (var _ry = _top + 10; _ry < _y2; _ry += 0.4 * U) draw_line_width(_mx - 0.4 * U, _ry, _mx + 0.4 * U, _ry, 4);
+            if (!_open) draw_blocked_mark(_mx, _top + 0.4 * U);
+            break;
         case "roofonly": atl_nine("roof", _x1, _y1, _x2, _y2); break;
         case "ruin":
             // a collapsed shell: broken floor, scorched rubble, the stump of the front wall
@@ -449,8 +492,7 @@ function draw_hud() {
     draw_txt(_x1 + 12, 42, _invs, COL_TEXT, fnt_small, fa_left, _x2 - _x1 - 24);
 
     var _oy = 14 + _ih + 8;
-    var _obj = _G.fence_cleared ? "The east side of campus is open." : "A fence cuts off the Library and Cafeteria. Everyone must be able to clear it.";
-    var _body = "Scavenge the campus and piece together what happened.\n" + _obj;
+    var _body = objective_text();
     var _oh = 34 + txt_h(_body, fnt_small, _x2 - _x1 - 24);
     draw_panel(_x1, _oy, _x2, _oy + _oh, COL_PANEL, COL_LINE, 0.9);
     draw_txt(_x1 + 12, _oy + 6, $"Clues {array_length(_G.clues)}/{array_length(global.CLUES)}", rgb(0xfff27a), fnt_ui);

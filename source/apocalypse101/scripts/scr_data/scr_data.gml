@@ -70,11 +70,15 @@ function data_init() {
         { key: "vest",    name: "Riot Vest",      cost: [["scrap", 2], ["cloth", 3]], gives: [],               once: true,  desc: "Party DEF +8." },
     ];
 
+    // One clue per building on the route (scr_world ROUTE). The order follows pickups, not places.
+    // PLACEHOLDER: the last two lines stand in until the story is written.
     global.CLUES = [
         "Attendance sheet: every name is crossed out at 9:14 AM, in the same handwriting.",
+        "Coach's whistle on the court, still on its lanyard. The scoreboard froze at 9:14.",
         "A phone on the quad, still warm. 212 unsent messages: \"Are you there?\"",
         "Chalkboard in the lecture hall: \"THEY WERE NEVER GONE. WE WERE.\"",
         "Faculty memo: \"Do not open the east gate after the signal. Repeat: do not open.\"",
+        "Maintenance log: \"Tunnel B sealed by order of the principal. Nobody goes down.\"",
     ];
 }
 
