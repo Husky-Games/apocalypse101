@@ -1,6 +1,3 @@
 
-# Packaged game builds
-build/
-
 # Purchased/downloaded asset packs (licensed; not redistributable)
 content/downloaded/
