@@ -155,12 +155,12 @@ function do_craft(_r) {
     for (var _i = 0; _i < array_length(_r.cost); _i++) inv_add(_r.cost[_i][0], -_r.cost[_i][1]);
     for (var _i = 0; _i < array_length(_r.gives); _i++) inv_add(_r.gives[_i][0], _r.gives[_i][1]);
     if (_r.key == "bat") {
-        _G.teacher.atk += 4; learn(_G.teacher, "power_swing");
-        toast("Reinforced Bat crafted: ATK +4, learned Power Swing!");
+        _G.teacher.atk += 10;
+        toast("Reinforced Bat crafted: Mr. Ramirez ATK +10!");
     } else if (_r.key == "vest") {
-        _G.teacher.def += 2;
-        for (var _i = 0; _i < array_length(_G.roster); _i++) _G.roster[_i].def += 2;
-        toast("Riot Vest crafted: party DEF +2!");
+        _G.teacher.def += 8;
+        for (var _i = 0; _i < array_length(_G.roster); _i++) _G.roster[_i].def += 8;
+        toast("Riot Vest crafted: party DEF +8!");
     } else {
         toast($"Crafted {_r.name}.", 1.6);
     }
@@ -232,16 +232,16 @@ function draw_overlay() {
 
 function draw_roster() {
     var _G = global.G;
-    var _x1 = 110, _y1 = 40, _x2 = GUI_W - 110, _y2 = GUI_H - 40;
+    var _x1 = 90, _y1 = 16, _x2 = GUI_W - 90, _y2 = GUI_H - 16;
     draw_panel(_x1, _y1, _x2, _y2);
-    draw_txt(_x1 + 30, _y1 + 22, _G.intro ? "Apocalypse 101" : "Classroom", COL_ACCENT, fnt_title);
+    draw_txt(_x1 + 30, _y1 + 16, _G.intro ? "Apocalypse 101" : "Classroom", COL_ACCENT, fnt_title);
     var _p = _G.intro
-        ? "Everyone else has vanished. You are the teacher. Choose 0–3 students to bring along. No one gets left behind: the party moves as one."
-        : "Choose 0–3 students to accompany you.";
-    draw_txt(_x1 + 30, _y1 + 66, _p, COL_MUTED, fnt_ui, fa_left, _x2 - _x1 - 60);
+        ? "Everyone else has vanished. You are Mr. Ramirez, the teacher. Choose 0–3 students. No one gets left behind."
+        : "Choose 0–3 students to accompany Mr. Ramirez.";
+    draw_txt(_x1 + 30, _y1 + 58, _p, COL_MUTED, fnt_ui, fa_left, _x2 - _x1 - 60);
 
-    var _cw = 330, _ch = 186, _gap = 15;
-    var _gx = _x1 + 30, _gy = _y1 + 120;
+    var _cw = 356, _ch = 154, _gap = 10;
+    var _gx = _x1 + 30, _gy = _y1 + 100;
     for (var _i = 0; _i < array_length(_G.roster); _i++) {
         var _m = _G.roster[_i];
         var _cx = _gx + (_i mod 3) * (_cw + _gap), _cy = _gy + (_i div 3) * (_ch + _gap);
@@ -255,29 +255,31 @@ function draw_roster() {
         if (_f && _sel) { draw_roundrect_ext(_cx + 1, _cy + 1, _cx + _cw - 1, _cy + _ch - 1, 12, 12, true); }
         if (!_can) { draw_set_alpha(0.35); draw_set_colour(c_black); draw_roundrect_ext(_cx, _cy, _cx + _cw, _cy + _ch, 12, 12, false); draw_set_alpha(1); }
 
-        draw_portrait(_m, _cx + _cw - 62, _cy + _ch - 104, 3);
-        draw_set_colour(_m.colour); draw_circle(_cx + 22, _cy + 22, 7, false);
-        draw_txt(_cx + 38, _cy + 10, $"{_i + 1}. {_m.name}", COL_TEXT, fnt_ui);
-        if (_sel) draw_txt(_cx + _cw - 14, _cy + 12, "IN PARTY", COL_ACCENT, fnt_small, fa_right);
-        draw_txt(_cx + 14, _cy + 40, $"{_m.major} · {_m.clique} · Lv{_m.level}", COL_MUTED, fnt_small);
-        draw_txt(_cx + 14, _cy + 62, $"ATK {_m.atk}    HP {_m.maxHp}    DEF {_m.def}    INT {_m.int}", COL_TEXT, fnt_small);
-        var _sk = [];
-        for (var _s = 0; _s < array_length(_m.skills); _s++) array_push(_sk, global.SKILLS[$ _m.skills[_s]].name);
-        draw_txt(_cx + 14, _cy + 84, "Skills: " + str_join(_sk, ", "), COL_MUTED, fnt_small, fa_left, _cw - 28);
-        draw_txt(_cx + 14, _cy + 106, "\"" + _m.blurb + "\"", COL_MUTED, fnt_small, fa_left, _cw - 28);
-        var _ty = _cy + 132;
-        if (!_m.canJump) { draw_txt(_cx + 14, _ty, "! Cannot jump obstacles", COL_WARN, fnt_small); _ty += 20; }
-        if (_m.trait == "craftAnywhere") draw_txt(_cx + 14, _ty, "* Group can craft anywhere", COL_ACCENT, fnt_small);
-        // HP if hurt
-        if (_m.hp < _m.maxHp) draw_txt(_cx + _cw - 80, _cy + 40, $"HP {_m.hp}/{_m.maxHp}", COL_WARN, fnt_small, fa_right);
+        draw_portrait(_m, _cx + _cw - 56, _cy + _ch - 100, 3);
+        draw_txt(_cx + 14, _cy + 8, $"{_i + 1}. {_m.name}", COL_TEXT, fnt_ui);
+        if (_sel) draw_txt(_cx + _cw - 14, _cy + 10, "IN PARTY", COL_ACCENT, fnt_small, fa_right);
+        draw_txt(_cx + 14, _cy + 32, $"{_m.role} · {_m.major} · Lv{_m.level}", COL_MUTED, fnt_small);
+        draw_txt(_cx + 14, _cy + 52, $"HP {_m.maxHp}    ATK {_m.atk}    DEF {_m.def}", COL_TEXT, fnt_small);
+        var _sk = global.SKILLS[$ _m.skills[0]];
+        draw_txt(_cx + 14, _cy + 72, _sk.name + ": " + _sk.desc, COL_MUTED, fnt_small, fa_left, _cw - 90);
+        var _ty = _cy + _ch - 24;
+        var _notes = [];
+        if (!_m.canJump) array_push(_notes, "! Can't jump fences");
+        if (_m.trait == "craftAnywhere") array_push(_notes, "* Craft anywhere");
+        if (_m.trait == "doubleFood") array_push(_notes, "* 2x food pickups");
+        if (_m.trait == "doubleMedical") array_push(_notes, "* 2x medical pickups");
+        for (var _n = 0; _n < array_length(_notes); _n++) {
+            draw_txt(_cx + 14 + _n * 150, _ty, _notes[_n], string_char_at(_notes[_n], 1) == "!" ? COL_WARN : COL_ACCENT, fnt_small);
+        }
+        if (_m.hp < _m.maxHp) draw_txt(_cx + _cw - 70, _cy + 32, $"HP {_m.hp}/{_m.maxHp}", COL_WARN, fnt_small, fa_right);
     }
 
-    var _by = _y2 - 62;
-    var _n = array_length(_G.sel);
-    draw_txt(_x1 + 30, _by + 12, $"Party {_n}/{MAX_PARTY}", COL_MUTED, fnt_ui);
-    draw_txt(_x1 + 30, _by + 38, "Art by LimeZu · limezu.itch.io", COL_MUTED, fnt_small);
+    var _by = _y2 - 56;
+    var _n2 = array_length(_G.sel);
+    draw_txt(_x1 + 30, _by + 4, $"Party {_n2}/{MAX_PARTY}", COL_MUTED, fnt_ui);
+    draw_txt(_x1 + 30, _by + 28, "Art by LimeZu · limezu.itch.io", COL_MUTED, fnt_small);
     ui_draw_button(_x2 - 30 - 360 - 12 - 180, _by, 180, 42, "Rest (full heal)", "rest", 0);
-    ui_draw_button(_x2 - 30 - 360, _by, 360, 42, $"Leave classroom with {_n} student{_n == 1 ? "" : "s"}", "leave", 0, true, true);
+    ui_draw_button(_x2 - 30 - 360, _by, 360, 42, $"Leave classroom with {_n2} student{_n2 == 1 ? "" : "s"}", "leave", 0, true, true);
 }
 
 function draw_craft() {

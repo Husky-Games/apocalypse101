@@ -22,7 +22,7 @@ function combat_start(_group) {
     for (var _i = 0; _i < _n; _i++) {
         array_push(_G.c.enemies, {
             name: _t.name, hp: _t.hp, maxHp: _t.hp, atk: _t.atk, def: _t.def, xp: _t.xp,
-            colour: _t.colour, eye: _t.eye, stunned: false,
+            colour: _t.colour, eye: _t.eye, stun: 0, poison: 0, confuse: 0,   // status turns left
             hx: (_i - (_n - 1) / 2) * 2.6, hz: -7 - (_i mod 2),
             hitT: 0, lunge: 0, dying: -1, sc: 1.5,
         });
@@ -105,14 +105,16 @@ function combat_end_turn() {
 
 function combat_action_menu() {
     var _m = global.G.c.active;
-    var _has_items = inv_count("bandage") > 0 || inv_count("medkit") > 0 || inv_count("energy") > 0;
+    var _has_items = false;
+    for (var _i = 0; _i < array_length(global.HEAL_ITEMS); _i++) if (inv_count(global.HEAL_ITEMS[_i]) > 0) _has_items = true;
+    if (inv_count("energy") > 0) _has_items = true;
     var _opts = [{ label: "Attack", value: "strike", sub: "", disabled: false, back: false }];
     for (var _i = 0; _i < array_length(_m.skills); _i++) {
         var _id = _m.skills[_i], _sk = global.SKILLS[$ _id], _cd = _m.cd[$ _id] ?? 0;
         array_push(_opts, { label: _sk.name, value: _id, sub: _cd > 0 ? $"Recharging ({_cd})" : _sk.desc, disabled: _cd > 0, back: false });
     }
     array_push(_opts, { label: "Item", value: "item", sub: "", disabled: !_has_items, back: false });
-    array_push(_opts, { label: "Defend", value: "defend", sub: "", disabled: false, back: false });
+    array_push(_opts, { label: "Defend", value: "defend", sub: "Block the next enemy hit.", disabled: false, back: false });
     combat_set_menu($"{_m.name}: choose action", "action", _opts);
 }
 
@@ -129,7 +131,7 @@ function combat_target_menu(_kind, _menu_kind) {
 }
 
 function combat_item_menu() {
-    var _keys = ["bandage", "medkit", "energy"];
+    var _keys = ["bandage", "food", "medkit", "energy"];
     var _opts = [];
     for (var _i = 0; _i < array_length(_keys); _i++) {
         var _k = _keys[_i];
@@ -151,14 +153,14 @@ function combat_pick(_idx) {
         case "action":
             if (_v == "defend") {
                 _m.defending = true;
-                _c.log = $"{_m.name} braces for impact.";
+                _c.log = $"{_m.name} braces to block the next hit.";
                 combat_wait(0.5, combat_end_turn);
             } else if (_v == "item") {
                 combat_item_menu();
             } else {
                 _c.pending_skill = _v;
                 var _sk = global.SKILLS[$ _v];
-                if (_sk.target == "party") { _c.pending_target = undefined; combat_run_skill(); }
+                if (_sk.target == "party" || _sk.target == "enemies") { _c.pending_target = undefined; combat_run_skill(); }
                 else combat_target_menu(_sk.target, "target");
             }
             break;
@@ -192,29 +194,59 @@ function combat_run_skill() {
     else combat_resolve_skill(0.5);
 }
 
-/// q = minigame quality 0..1 (0.5 when the skill has no minigame).
+/// q = minigame quality 0..1 (0.5 when the skill has no minigame). q >= 0.95 is a crit.
 function combat_resolve_skill(_q) {
     var _c = global.G.c;
     var _m = _c.active, _id = _c.pending_skill, _sk = global.SKILLS[$ _id], _target = _c.pending_target;
-    var _base = _sk.stat == "int" ? _m.int : atk_of(_m);
-    var _power = _base * _sk.mult * (0.5 + _q) * random_range(0.92, 1.08);
+    var _crit = _sk.minigame != "" && _q >= 0.95;
     var _extra = 0;
-    if (_sk.type == "attack" || _sk.type == "status") {
-        var _dmg = max(1, round(_power - _target.def));
-        hit_enemy(_target, _dmg, _q >= 0.95);
-        if (_target.hp <= 0) _extra = 0.45;
-        if (_sk.status == "stun" && _target.hp > 0) {
-            if (_q >= 0.3) { _target.stunned = true; _c.log = $"{_m.name} stuns {_target.name}!"; }
-            else _c.log = "The flash fizzles.";
-        } else _c.log = $"{_m.name} uses {_sk.name}: {_dmg} damage!";
-    } else if (_sk.type == "heal") {
-        var _amt = round(_power) + 5;
-        _target.hp = min(_target.maxHp, _target.hp + _amt);
-        _c.log = $"{_m.name} heals {_target.name} for {_amt}.";
-    } else if (_sk.type == "buff") {
-        var _alive = alive_party();
-        for (var _i = 0; _i < array_length(_alive); _i++) _alive[_i].buff = { mult: 1 + (_sk.mult - 1) * (0.7 + _q * 0.6), turns: 3 };
-        _c.log = $"{_m.name} rallies the party!";
+    switch (_sk.type) {
+        case "attack":
+            // Basic attack: half ATK. Skills: base damage plus a quarter of ATK, scaled by the minigame.
+            var _raw = _id == "strike"
+                ? atk_of(_m) * 0.5 * random_range(0.9, 1.1)
+                : (_sk.base + atk_of(_m) * 0.25) * (0.6 + 0.4 * _q) * random_range(0.95, 1.05) * (_crit ? 1.5 : 1);
+            var _list = _sk.target == "enemies" ? alive_enemies() : [_target];
+            var _last = 0, _hit = 0;
+            for (var _i = 0; _i < array_length(_list); _i++) {
+                var _e = _list[_i];
+                _last = mitigate(_raw, _e.def);
+                hit_enemy(_e, _last, _crit);
+                _hit++;
+                if (_e.hp <= 0) { _extra = 0.45; continue; }
+                if (_sk.status == "poison") _e.poison = max(_e.poison, _sk.turns);
+                if (_sk.status == "confuse") _e.confuse = max(_e.confuse, _sk.turns);
+            }
+            var _tail = (_crit ? " Critical!" : "") + (_sk.status == "poison" ? " Poisoned!" : (_sk.status == "confuse" ? " Confused!" : ""));
+            _c.log = _hit > 1 ? $"{_m.name} uses {_sk.name} on {_hit} enemies!{_tail}"
+                              : (_id == "strike" ? $"{_m.name} attacks: {_last} damage." : $"{_m.name} uses {_sk.name}: {_last} damage!{_tail}");
+            break;
+        case "status": // Freeze Frame: stun 2 turns, 3 on a crit
+            if (_q >= 0.3) {
+                var _turns = _crit ? _sk.turns + 1 : _sk.turns;
+                _target.stun = max(_target.stun, _turns);
+                _target.hitT = 0.3;
+                _c.log = $"{_m.name} snaps {_target.name}: stunned for {_turns} turns!" + (_crit ? " Perfect shot!" : "");
+            } else _c.log = $"{_m.name}'s photo is too blurry. {_target.name} shakes it off.";
+            break;
+        case "heal": // heals every conscious ally up to base% of their max HP
+            var _pct = _sk.base / 100 * max(0.25, _q);
+            var _alive = alive_party(), _sum = 0;
+            for (var _i = 0; _i < array_length(_alive); _i++) {
+                var _a = _alive[_i], _amt = max(1, round(_a.maxHp * _pct));
+                _sum += min(_amt, _a.maxHp - _a.hp);
+                _a.hp = min(_a.maxHp, _a.hp + _amt);
+            }
+            _c.log = $"{_m.name} uses {_sk.name}: the party recovers {_sum} HP ({round(_pct * 100)}%).";
+            break;
+        case "buff": // Pop Quiz: +10% ATK per correct answer (3 answers -> up to 30%)
+            var _boost = _sk.base / 100 * _q;
+            if (_boost > 0.001) {
+                var _alive2 = alive_party();
+                for (var _i = 0; _i < array_length(_alive2); _i++) _alive2[_i].buff = { mult: 1 + _boost, turns: _sk.turns };
+                _c.log = $"{_m.name}'s Pop Quiz pays off: party ATK +{round(_boost * 100)}% for {_sk.turns} turns!";
+            } else _c.log = "Nobody remembered the answers. No boost.";
+            break;
     }
     if (_sk.cd > 0) _m.cd[$ _id] = _sk.cd;
     combat_wait(0.65 + _extra, combat_end_turn);
@@ -236,19 +268,44 @@ function combat_enemy_next() {
     if (_c.eidx >= _n) { combat_round_end(); return; }
     var _e = _c.enemies[_c.eidx];
     _c.eidx++;
-    if (_e.stunned) {
-        _e.stunned = false;
-        _c.log = $"{_e.name} is stunned and can't act.";
+    // Poison ticks at the start of the enemy's turn
+    if (_e.poison > 0) {
+        _e.poison--;
+        var _pd = max(1, round(_e.maxHp * 0.06));
+        hit_enemy(_e, _pd, false);
+        if (_e.hp <= 0) { _c.log = $"{_e.name} succumbs to the poison."; combat_wait(0.9, combat_enemy_next); return; }
+    }
+    if (_e.stun > 0) {
+        _e.stun--;
+        _c.log = $"{_e.name} is stunned and can't act." + (_e.stun > 0 ? $" ({_e.stun} more)" : "");
         combat_wait(0.7, combat_enemy_next);
         return;
+    }
+    if (_e.confuse > 0) {
+        _e.confuse--;
+        if (random(1) < 0.5) {
+            var _others = alive_enemies();
+            var _v = _others[irandom(array_length(_others) - 1)];
+            var _cd2 = mitigate(_e.atk * 0.5 * random_range(0.8, 1.2), _v.def);
+            hit_enemy(_v, _cd2, false);
+            _e.lunge = 0.3;
+            _c.log = _v == _e ? $"{_e.name} is confused and hurts itself for {_cd2}!" : $"{_e.name} is confused and strikes another {_v.name} for {_cd2}!";
+            combat_wait(0.8, combat_enemy_next);
+            return;
+        }
     }
     var _targets = alive_party();
     if (array_length(_targets) == 0) { combat_round_end(); return; }
     var _t = _targets[irandom(array_length(_targets) - 1)];
-    var _dmg = max(1, round(_e.atk * random_range(0.8, 1.2)) - _t.def);
-    if (_t.defending) _dmg = max(1, round(_dmg / 2));
-    _t.hp = max(0, _t.hp - _dmg);
     _e.lunge = 0.4;
+    if (_t.defending) {
+        _t.defending = false; // Defend blocks one hit completely
+        _c.log = $"{_e.name} attacks {_t.name}, but the hit is blocked!";
+        combat_wait(0.8, combat_enemy_next);
+        return;
+    }
+    var _dmg = mitigate(_e.atk * 0.5 * random_range(0.8, 1.2), _t.def);
+    _t.hp = max(0, _t.hp - _dmg);
     _c.shake = 0.35;
     _c.flash = 0.08;
     _c.log = $"{_e.name} hits {_t.name} for {_dmg}" + (_t.hp <= 0 ? ". They collapse!" : ".");

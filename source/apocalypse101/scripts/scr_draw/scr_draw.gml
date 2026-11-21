@@ -485,7 +485,7 @@ function draw_combat_enemy(_e) {
     }
     gpu_set_tex_filter(true);
 
-    if (_e.stunned) {
+    if (_e.stun > 0) {
         var _sp = cproj(_x, _y + 2.55 * _sc, _z);
         draw_set_colour(rgb(0xffe04a));
         for (var _a = 0; _a < 3; _a++) {
@@ -505,9 +505,10 @@ function draw_combat_ui() {
         var _e = _c.enemies[_i];
         var _x = _ex + _i * (_ew + _eg);
         draw_set_alpha(_e.hp <= 0 ? 0.35 : 1);
-        draw_panel(_x, 14, _x + _ew, 62, COL_PANEL, _e.stunned ? rgb(0xffe04a) : COL_LINE, 0.85);
+        draw_panel(_x, 14, _x + _ew, 62, COL_PANEL, _e.stun > 0 ? rgb(0xffe04a) : (_e.poison > 0 ? rgb(0x7ad04a) : (_e.confuse > 0 ? rgb(0xc07ae0) : COL_LINE)), 0.85);
         draw_set_alpha(_e.hp <= 0 ? 0.35 : 1);
-        draw_txt(_x + 10, 18, _e.name + (_e.stunned ? " (stunned)" : ""), COL_TEXT, fnt_ui);
+        var _st = (_e.stun > 0 ? $" stun {_e.stun}" : "") + (_e.poison > 0 ? $" psn {_e.poison}" : "") + (_e.confuse > 0 ? $" conf {_e.confuse}" : "");
+        draw_txt(_x + 10, 18, _e.name + _st, COL_TEXT, fnt_ui);
         draw_bar(_x + 10, 46, _ew - 20, 8, max(0, _e.hp) / _e.maxHp, rgb(0xd03040));
         draw_set_alpha(1);
     }

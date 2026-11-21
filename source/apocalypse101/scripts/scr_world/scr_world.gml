@@ -133,7 +133,7 @@ function world_build() {
     var _spots = [
         ["cloth", -10, 4], ["cloth", -12, -7], ["scrap", -8, -1], ["scrap", 2, -3], ["scrap", 5, 3], ["medkit", 0, 14],
         ["energy", 10, -12], ["clue", -6, -7.5], ["clue", 8, -7],
-        ["scrap", 22, 6], ["cloth", 20, -4], ["cloth", 25, 4], ["medkit", 26, 13], ["energy", 21, 14], ["scrap", 28, -12],
+        ["food", -11, 2.8], ["food", 7, 6], ["food", 24, -2], ["scrap", 22, 6], ["cloth", 20, -4], ["cloth", 25, 4], ["medkit", 26, 13], ["energy", 21, 14], ["scrap", 28, -12],
         ["clue", 27, -15], ["clue", 28, 1],
     ];
     for (var _i = 0; _i < array_length(_spots); _i++) add_item(_spots[_i][0], _spots[_i][1], _spots[_i][2]);
@@ -160,7 +160,7 @@ function party_build() {
 
 function party_place() {
     var _G = global.G;
-    var _idle = [[-26, -2.5], [-24.4, -2.5], [-22.8, -2.5], [-21.2, -2.5], [-19.6, -2.5], [-18, -2.5]];
+    var _idle = [[-26.8, -2.5], [-25.4, -2.5], [-24, -2.5], [-22.6, -2.5], [-21.2, -2.5], [-19.8, -2.5], [-18.4, -2.5], [-17, -2.5]];
     var _t = _G.teacher;
     for (var _i = 0; _i < array_length(_G.roster); _i++) {
         var _m = _G.roster[_i];
@@ -217,16 +217,15 @@ function try_fence() {
 }
 
 function craft_anywhere() {
-    var _ok = false;
-    for (var _i = 0; _i < array_length(global.G.party); _i++) if (global.G.party[_i].trait == "craftAnywhere") _ok = true;
-    if (_ok) craft_open();
-    else toast("You need a table, or a crafter in the party (Priya).");
+    if (has_trait("craftAnywhere")) craft_open();
+    else toast("You need a crafting table, or Scarlett in the party.");
 }
 
 function heal_lowest() {
     var _targets = array_filter(everyone(), function(_m) { return _m.hp < _m.maxHp; });
     if (array_length(_targets) == 0) { toast("Everyone is healthy."); return; }
-    var _item = inv_count("bandage") > 0 ? "bandage" : (inv_count("medkit") > 0 ? "medkit" : "");
+    var _item = "";
+    for (var _i = 0; _i < array_length(global.HEAL_ITEMS); _i++) if (_item == "" && inv_count(global.HEAL_ITEMS[_i]) > 0) _item = global.HEAL_ITEMS[_i];
     if (_item == "") { toast("No healing items. Craft bandages from cloth."); return; }
     array_sort(_targets, function(_a, _b) { return sign((_a.hp / _a.maxHp) - (_b.hp / _b.maxHp)); });
     var _t = _targets[0];
@@ -244,8 +243,12 @@ function pickup(_node) {
         toast($"Clue: {_text}", 6);
         if (array_length(_G.clues) == array_length(global.CLUES)) _G.finish_pending = 6.2;
     } else {
-        inv_add(_node.type, 1);
-        toast($"Picked up {global.ITEMS[$ _node.type].name}.", 1.6);
+        var _it = global.ITEMS[$ _node.type];
+        var _n = 1, _who = "";
+        if (_it.food && has_trait("doubleFood")) { _n = 2; _who = " Jake finds extra."; }
+        if (_it.medical && has_trait("doubleMedical")) { _n = 2; _who = " Zuri finds extra."; }
+        inv_add(_node.type, _n);
+        toast($"Picked up {_it.name}" + (_n > 1 ? $" ×{_n}.{_who}" : "."), 1.6);
     }
 }
 

@@ -84,27 +84,36 @@ $Parts = @(
   @("bt_hollow",  $FB, "Fantasy Battlers - Complete/Original size/17.png", "")
 )
 
-# Character strips: sprite name -> zip, entry, idle row y, walk row y
-$pre = "2_Characters/Character_Generator/0_Premade_Characters/16x16/Premade_Character"
-$zom = "Modern_Exteriors_16x16/Character_Generator_Addons_16x16/Characters_16x16/Modern_Exteriors_Characters"
+# Characters, built from Modern Interiors Character Generator layers, stacked in LimeZu's order:
+# body, eyes, outfit, hairstyle, accessory. Designs follow content/characters.md and the reference art.
 $Cast = [ordered]@{
-  ch_teacher = @($INT, "${pre}_02.png", 32, 64)
-  ch_maya    = @($INT, "${pre}_01.png", 32, 64)
-  ch_jake    = @($INT, "${pre}_04.png", 32, 64)
-  ch_priya   = @($INT, "${pre}_13.png", 32, 64)
-  ch_leo     = @($INT, "${pre}_08.png", 32, 64)
-  ch_dev     = @($INT, "${pre}_15.png", 32, 64)
-  ch_tessa   = @($INT, "${pre}_18.png", 32, 64)
-  en_shade   = @($EXT, "${zom}_Zombie_1_16x16.png", 32, 64)
-  en_hollow  = @($EXT, "${zom}_Zombie_2_16x16.png", 32, 64)
+  ch_teacher  = @("Body_01", "Eyes_01", "Outfit_01_09", "Hairstyle_16_04", "Accessory_12_Mustache_01")  # Mr. Ramirez
+  ch_pritya   = @("Body_04", "Eyes_01", "Outfit_01_10", "Hairstyle_26_03")                             # Pritya Nair
+  ch_maya     = @("Body_03", "Eyes_01", "Outfit_33_01", "Hairstyle_15_07")                             # Maya Chen
+  ch_jake     = @("Body_07", "Eyes_01", "Outfit_09_01", "Hairstyle_03_02", "Accessory_18_Chef_01")     # Jake Torres
+  ch_axel     = @("Body_02", "Eyes_03", "Outfit_06_03", "Hairstyle_09_07")                             # Axel Thompson
+  ch_viola    = @("Body_02", "Eyes_04", "Outfit_01_05", "Hairstyle_20_01")                             # Viola Abelard
+  ch_jorge    = @("Body_04", "Eyes_01", "Outfit_09_03", "Hairstyle_02_04", "Accessory_15_Glasses_01")  # Jorge Gutierrez
+  ch_scarlett = @("Body_03", "Eyes_02", "Outfit_01_06", "Hairstyle_29_01")                             # Scarlett Andersen
+  ch_zuri     = @("Body_01", "Eyes_01", "Outfit_17_03", "Hairstyle_23_04", "Accessory_17_Medical_Mask_01") # Zuri Williams
+}
+$LayerDirs = @{ Body = "Bodies"; Eyes = "Eyes"; Outfit = "Outfits"; Hairstyle = "Hairstyles"; Accessory = "Accessories" }
+
+# Overworld enemies: single premade sheets. sprite name -> zip, entry
+$zom = "Modern_Exteriors_16x16/Character_Generator_Addons_16x16/Characters_16x16/Modern_Exteriors_Characters"
+$Enemies = [ordered]@{
+  en_shade  = @($EXT, "${zom}_Zombie_1_16x16.png")
+  en_hollow = @($EXT, "${zom}_Zombie_2_16x16.png")
 }
 
 # ---------------------------------------------------------------- zip access
 $zips = @{}
 function Open-Pack($name) {
   if (-not $zips.ContainsKey($name)) {
-    $path = Join-Path $Packs $name
-    if (-not (Test-Path $path)) { throw "Missing asset pack: $path" }
+    # packs may sit directly in content/downloaded or in a subfolder (e.g. content/downloaded/LimeZu)
+    $found = Get-ChildItem $Packs -Recurse -File -Filter $name -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $found) { throw "Missing asset pack '$name' under $Packs" }
+    $path = $found.FullName
     $zips[$name] = [System.IO.Compression.ZipFile]::OpenRead($path)
   }
   $zips[$name]
@@ -167,27 +176,37 @@ try {
   Set-Content -Path $GmlOut -Encoding utf8 -Value ($lines -join "`r`n")
 
   # ---------------------------------------------------------------- character strips
-  foreach ($name in $Cast.Keys) {
-    $c = $Cast[$name]; $img = Get-Image $c[0] $c[1]
+  # Each strip copies the sheet's idle row (y=32) and walk row (y=64), compositing layers in order.
+  function Save-Strip($name, $images) {
     $bm = New-Object System.Drawing.Bitmap 384, 64, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
     $g = [System.Drawing.Graphics]::FromImage($bm)
-    $g.DrawImage($img, (New-Object System.Drawing.Rectangle 0, 0, 384, 32), (New-Object System.Drawing.Rectangle 0, $c[2], 384, 32), [System.Drawing.GraphicsUnit]::Pixel)
-    $g.DrawImage($img, (New-Object System.Drawing.Rectangle 0, 32, 384, 32), (New-Object System.Drawing.Rectangle 0, $c[3], 384, 32), [System.Drawing.GraphicsUnit]::Pixel)
+    foreach ($img in $images) {
+      $g.DrawImage($img, (New-Object System.Drawing.Rectangle 0, 0, 384, 32), (New-Object System.Drawing.Rectangle 0, 32, 384, 32), [System.Drawing.GraphicsUnit]::Pixel)
+      $g.DrawImage($img, (New-Object System.Drawing.Rectangle 0, 32, 384, 32), (New-Object System.Drawing.Rectangle 0, 64, 384, 32), [System.Drawing.GraphicsUnit]::Pixel)
+    }
     $g.Dispose()
     $bm.Save((Join-Path $OutDir "$name.png"), [System.Drawing.Imaging.ImageFormat]::Png)
   }
+  foreach ($name in $Cast.Keys) {
+    $images = foreach ($layer in $Cast[$name]) {
+      $dir = $LayerDirs[$layer.Split("_")[0]]
+      Get-Image $INT "2_Characters/Character_Generator/$dir/16x16/$layer.png"
+    }
+    Save-Strip $name $images
+  }
+  foreach ($name in $Enemies.Keys) { Save-Strip $name @(Get-Image $Enemies[$name][0] $Enemies[$name][1]) }
 
   # ---------------------------------------------------------------- install into sprites
   if (-not $NoInstall) {
     $map = @{ spr_atlas = "atlas" }
-    foreach ($name in $Cast.Keys) { $map["spr_$name"] = $name }
+    foreach ($name in @($Cast.Keys) + @($Enemies.Keys)) { $map["spr_$name"] = $name }
     foreach ($spr in $map.Keys) {
       $dir = Join-Path $Project "sprites\$spr"
       if (-not (Test-Path $dir)) { Write-Warning "Sprite folder missing: $spr (create it in GameMaker first)"; continue }
       Get-ChildItem $dir -Recurse -Filter *.png | ForEach-Object { Copy-Item (Join-Path $OutDir "$($map[$spr]).png") $_.FullName -Force }
     }
   }
-  "Built atlas ${W}x$H ($($Parts.Count) parts) and $($Cast.Count) character strips."
+  "Built atlas ${W}x$H ($($Parts.Count) parts), $($Cast.Count) character and $($Enemies.Count) enemy strips."
 }
 finally {
   foreach ($z in $zips.Values) { $z.Dispose() }
